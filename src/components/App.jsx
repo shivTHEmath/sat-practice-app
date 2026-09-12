@@ -6,14 +6,17 @@ import Practice from "./Practice";
 import { signIn } from "@/lib/exam";
 
 const STORAGE_KEY = "sat-practice-user";
+const THEME_KEY = "sat-practice-theme";
 const GUEST = { id: null, username: "Guest" };
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [theme, setTheme] = useState("light");
 
   useEffect(() => {
+    setTheme(document.documentElement.dataset.theme || "light");
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) setUser(JSON.parse(saved));
@@ -49,6 +52,17 @@ export default function App() {
     setUser(null);
   }
 
+  function toggleTheme() {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    document.documentElement.dataset.theme = nextTheme;
+    try {
+      localStorage.setItem(THEME_KEY, nextTheme);
+    } catch {
+      // Non-fatal: the theme still changes for the current visit.
+    }
+  }
+
   if (!user) {
     return (
       <Login
@@ -60,5 +74,12 @@ export default function App() {
     );
   }
 
-  return <Practice user={user} onSignOut={handleSignOut} />;
+  return (
+    <Practice
+      user={user}
+      onSignOut={handleSignOut}
+      theme={theme}
+      onToggleTheme={toggleTheme}
+    />
+  );
 }

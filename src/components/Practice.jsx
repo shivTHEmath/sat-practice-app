@@ -31,7 +31,7 @@ const blank = () => ({ selected: null, crossed: [], marked: false, ms: 0, checke
  * The default view: an endless stream of questions. A test is the same stream
  * with a fixed length and a countdown, so both share one code path.
  */
-export default function Practice({ user, onSignOut }) {
+export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
   const [filters, setFilters] = useState({ range: FULL_RANGE });
   // Mirrors `filters` synchronously: several chips can be clicked inside one
   // render, and each needs to build on the previous click, not on stale props.
@@ -407,6 +407,10 @@ export default function Practice({ user, onSignOut }) {
         )}
         {user.id && !test ? <button type="button" onClick={() => setPanel("missed")}>Review missed questions <span>{history.missed.length || ""} ›</span></button> : null}
         {user.id && !test ? <button type="button" onClick={() => setPanel("stats")}>View performance <span>›</span></button> : null}
+        <button type="button" onClick={onToggleTheme} aria-pressed={theme === "dark"}>
+          {theme === "dark" ? "Use light mode" : "Use dark mode"}
+          <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
+        </button>
         <button type="button" onClick={onSignOut}>Exit practice <span>›</span></button>
       </div>
     );

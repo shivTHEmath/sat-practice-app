@@ -73,13 +73,8 @@ export default function Review({ questions, answers, totalMs, onDone }) {
                       return (
                         <div
                           key={l}
-                          className={`rounded border px-3 py-2 text-[0.98rem] ${
-                            isCorrect
-                              ? "border-bb-correct bg-[#f2fbf5]"
-                              : isPicked
-                                ? "border-bb-wrong bg-[#fdf3f3]"
-                                : "border-bb-line"
-                          }`}
+                          className="review-choice rounded border px-3 py-2 text-[0.98rem]"
+                          data-state={isCorrect ? "correct" : isPicked ? "wrong" : undefined}
                         >
                           <span className="font-bold">{l}.</span> {q.choices[l]}
                           {isPicked ? (

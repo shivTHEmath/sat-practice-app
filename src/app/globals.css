@@ -21,6 +21,10 @@ body {
   height: 100%;
 }
 
+html {
+  color-scheme: light;
+}
+
 body {
   background: #ffffff;
   color: var(--color-bb-ink);
@@ -110,6 +114,16 @@ input:focus-visible {
   background: var(--color-bb-wrong);
   border-color: var(--color-bb-wrong);
   color: #fff;
+}
+
+.review-choice[data-state="correct"] {
+  border-color: var(--color-bb-correct);
+  background: #f2fbf5;
+}
+
+.review-choice[data-state="wrong"] {
+  border-color: var(--color-bb-wrong);
+  background: #fdf3f3;
 }
 
 /* Crossed-out choices stay visible but struck through, as in Bluebook. */
@@ -775,6 +789,102 @@ input:focus-visible {
   border-top-color: var(--color-bb-blue);
   border-radius: 999px;
   animation: spin 0.7s linear infinite;
+}
+
+/* The dark palette keeps Bluebook's restrained contrast while making every
+   surface, including review and sign-in states, comfortable in low light. */
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bb-ink: #f0f2f4;
+  --color-bb-muted: #b5bac1;
+  --color-bb-line: #464b52;
+  --color-bb-blue: #8397ff;
+  --color-bb-blue-dark: #6e83f4;
+  --color-bb-correct: #55c878;
+  --color-bb-wrong: #ff7772;
+}
+
+[data-theme="dark"] body,
+[data-theme="dark"] .exam-shell,
+[data-theme="dark"] .exam-header,
+[data-theme="dark"] .exam-footer {
+  background: #151719;
+}
+
+[data-theme="dark"] .difficulty-bar,
+[data-theme="dark"] .missed-panel,
+[data-theme="dark"] .practice-options,
+[data-theme="dark"] .test-picker,
+[data-theme="dark"] .quick-menu,
+[data-theme="dark"] .bg-neutral-50 {
+  background: #1d2023;
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] .bb-choice,
+[data-theme="dark"] .missed-row,
+[data-theme="dark"] .segmented,
+[data-theme="dark"] .filter-chip,
+[data-theme="dark"] .test-presets button,
+[data-theme="dark"] .bg-white {
+  background: #202327;
+  color: var(--color-bb-ink);
+}
+
+[data-theme="dark"] .header-tool {
+  color: var(--color-bb-ink);
+}
+
+[data-theme="dark"] .header-tool:hover,
+[data-theme="dark"] .header-tool[aria-expanded="true"],
+[data-theme="dark"] .icon-button:hover,
+[data-theme="dark"] .quick-menu button:hover {
+  background: #2a2e33;
+}
+
+[data-theme="dark"] .question-number,
+[data-theme="dark"] .missed-number {
+  background: #f0f2f4;
+  color: #151719;
+}
+
+[data-theme="dark"] .bb-choice[data-state="correct"],
+[data-theme="dark"] .review-choice[data-state="correct"] {
+  border-color: var(--color-bb-correct);
+  background: #152b1d;
+}
+
+[data-theme="dark"] .bb-choice[data-state="wrong"],
+[data-theme="dark"] .review-choice[data-state="wrong"] {
+  border-color: var(--color-bb-wrong);
+  background: #321c1d;
+}
+
+[data-theme="dark"] .missed-status {
+  background: #3a2021;
+}
+
+[data-theme="dark"] .bb-passage mark {
+  background: #6b5c12;
+  color: #fff2ad;
+}
+
+[data-theme="dark"] .bg-neutral-100,
+[data-theme="dark"] .bg-neutral-200 {
+  background: #34383d;
+}
+
+[data-theme="dark"] .crossout-button.bg-bb-ink {
+  background: #f0f2f4;
+  color: #151719;
+}
+
+[data-theme="dark"] .bb-range::-webkit-slider-thumb {
+  background: #202327;
+}
+
+[data-theme="dark"] .bb-range::-moz-range-thumb {
+  background: #202327;
 }
 
 @keyframes spin {
