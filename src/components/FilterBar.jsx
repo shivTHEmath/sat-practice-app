@@ -1,0 +1,40 @@
+"use client";
+
+import { DIFFICULTIES } from "@/lib/exam";
+
+export default function FilterBar({ range, onRange }) {
+  const [lo, hi] = range;
+  const allDifficulties = lo === 1 && hi === DIFFICULTIES.length;
+  const value = allDifficulties ? 0 : lo;
+  const label = value === 0 ? "Mixed" : DIFFICULTIES[value - 1];
+
+  return (
+    <div className="difficulty-bar">
+      <div className="difficulty-copy">
+        <span>Difficulty</span>
+        <strong>{label}</strong>
+      </div>
+      <div className="difficulty-control">
+        <input
+          type="range"
+          min="0"
+          max="3"
+          step="1"
+          value={value}
+          onChange={(event) => {
+            const next = Number(event.target.value);
+            onRange(next === 0 ? [1, 3] : [next, next]);
+          }}
+          aria-label="Question difficulty"
+          aria-valuetext={label}
+        />
+        <div className="difficulty-labels" aria-hidden="true">
+          <span>Mixed</span>
+          <span>Easy</span>
+          <span>Medium</span>
+          <span>Hard</span>
+        </div>
+      </div>
+    </div>
+  );
+}
