@@ -152,10 +152,16 @@ export default function Practice({ user, onSignOut }) {
     if (isCorrect) mastered.current.add(question.id);
     setHistory((previous) => {
       const existing = previous.missed.find((item) => item.questionId === question.id);
-      if (isCorrect && !existing) return previous;
+      if (isCorrect) {
+        if (!existing) return previous;
+        return {
+          ...previous,
+          missed: previous.missed.filter((item) => item.questionId !== question.id),
+        };
+      }
 
       const item = existing
-        ? { ...existing, correctEver: existing.correctEver || isCorrect, lastSelected: selected }
+        ? { ...existing, lastSelected: selected }
         : {
             questionId: question.id,
             question,

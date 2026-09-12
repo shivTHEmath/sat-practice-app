@@ -152,7 +152,7 @@ async function loadAttemptRows(userId) {
   return rows;
 }
 
-/** Correct questions are mastered; every question ever missed stays reviewable. */
+/** Correct questions are mastered; only unresolved misses stay reviewable. */
 export async function loadPracticeHistory(userId) {
   if (!userId) return { correctIds: [], missed: [] };
 
@@ -181,7 +181,12 @@ export async function loadPracticeHistory(userId) {
       .filter((summary) => summary.correctEver)
       .map((summary) => summary.questionId),
     missed: [...summaries.values()]
-      .filter((summary) => summary.wrongEver && questionsById.has(summary.questionId))
+      .filter(
+        (summary) =>
+          summary.wrongEver &&
+          !summary.correctEver &&
+          questionsById.has(summary.questionId)
+      )
       .map((summary) => ({ ...summary, question: questionsById.get(summary.questionId) })),
   };
 }

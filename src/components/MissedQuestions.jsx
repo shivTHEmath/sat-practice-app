@@ -31,9 +31,7 @@ export default function MissedQuestions({ items, loading, error, onOpen, onClose
                 <strong>{item.question.prompt}</strong>
                 <span>{item.question.difficulty} · {item.question.domain}</span>
               </span>
-              <span className={item.correctEver ? "missed-status mastered" : "missed-status"}>
-                {item.correctEver ? "Corrected" : "Review"}
-              </span>
+              <span className="missed-status">Review</span>
               <span aria-hidden="true" className="missed-arrow">›</span>
             </button>
           ))}

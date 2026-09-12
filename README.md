@@ -23,8 +23,8 @@ go. Everything else is secondary and lives in the toolbar.
   and filter changes do not repeatedly fetch the same data.
 - **Persistent progress**: signed-in users do not receive questions they have
   already answered correctly. Every missed question remains available from
-  **Review missed questions** in the three-dot menu, including questions that
-  were later corrected.
+  **Review missed questions** in the three-dot menu until it is answered
+  correctly.
 - **Question links**: every displayed question updates the URL with its stable
   question ID. Opening that link returns directly to the problem in review
   mode after sign-in (or after continuing as a guest).
