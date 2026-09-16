@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { normalizeQuestion } from "../src/lib/question-content.js";
+import { parsePassage } from "../src/lib/passage-structure.js";
 
 const raw = JSON.parse(readFileSync(new URL("./bank.json", import.meta.url), "utf8"));
 const bank = raw.map(normalizeQuestion);
@@ -39,6 +40,16 @@ for (const question of bank) {
       }
     }
   }
+
+  const passage = parsePassage(question.passage);
+  if (/^Text 1\b/i.test(question.passage) && passage.type !== "paired") {
+    errors.push(`${label}: paired texts could not be separated`);
+  }
+  if (/^While researching a topic, a student has taken the following notes:/i.test(question.passage)) {
+    if (passage.type !== "notes" || passage.items.length < 2) {
+      errors.push(`${label}: research notes could not be structured`);
+    }
+  }
 }
 
 if (errors.length) {
@@ -47,4 +58,6 @@ if (errors.length) {
 }
 
 const tableCount = bank.filter((question) => question.table_data).length;
-console.log(`Audited ${bank.length} questions: ${tableCount} tables, no structural errors.`);
+const pairedCount = bank.filter((question) => parsePassage(question.passage).type === "paired").length;
+const notesCount = bank.filter((question) => parsePassage(question.passage).type === "notes").length;
+console.log(`Audited ${bank.length} questions: ${tableCount} tables, ${pairedCount} paired passages, ${notesCount} note sets, no structural errors.`);

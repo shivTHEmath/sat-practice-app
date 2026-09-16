@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import QuestionTable from "./QuestionTable";
+import QuestionContent from "./QuestionContent";
 import { clock, seconds } from "@/lib/format";
 
 const LETTERS = ["A", "B", "C", "D"];
@@ -63,8 +63,9 @@ export default function Review({ questions, answers, totalMs, onDone }) {
 
               {expanded ? (
                 <div className="border-t border-bb-line px-4 py-4">
-                  <QuestionTable table={q.table_data} />
-                  <p className="text-[1.02rem] leading-[1.7]">{q.passage}</p>
+                  <div className="text-[1.02rem] leading-[1.7]">
+                    <QuestionContent question={q} />
+                  </div>
                   <p className="mt-4 font-semibold">{q.prompt}</p>
                   <div className="mt-3 space-y-2">
                     {LETTERS.map((l) => {

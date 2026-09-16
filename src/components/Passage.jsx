@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import QuestionTable from "./QuestionTable";
+import QuestionContent from "./QuestionContent";
 
 /**
  * The passage pane. Selecting text and releasing highlights it, and clicking an
@@ -47,8 +47,7 @@ export default function Passage({ question, highlightOn }) {
       onClick={handleClick}
       className="bb-passage text-[1.05rem] leading-[1.7]"
     >
-      <QuestionTable table={question.table_data} />
-      <p>{question.passage}</p>
+      <QuestionContent question={question} />
     </div>
   );
 }
