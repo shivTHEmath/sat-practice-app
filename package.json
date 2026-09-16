@@ -2,9 +2,12 @@
   "name": "sat-practice",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "audit": "node scripts/audit-bank.mjs",
+    "fix-content": "node scripts/apply-content-fixes.mjs",
     "start": "next start",
     "seed": "node scripts/seed.mjs"
   },

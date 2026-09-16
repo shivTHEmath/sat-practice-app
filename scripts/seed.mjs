@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { normalizeQuestion } from "../src/lib/question-content.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -25,7 +26,7 @@ if (!url || !key) {
 const supabase = createClient(url, key, { auth: { persistSession: false } });
 const bank = JSON.parse(readFileSync(join(here, "bank.json"), "utf8"));
 
-const rows = bank.map((q) => ({
+const rows = bank.map(normalizeQuestion).map((q) => ({
   id: q.id,
   domain: q.domain,
   skill: q.skill,
@@ -35,7 +36,7 @@ const rows = bank.map((q) => ({
   choices: q.choices,
   correct: q.correct,
   rationale: q.rationale,
-  table_data: q.table ?? null,
+  table_data: q.table_data,
 }));
 
 const SIZE = 100;

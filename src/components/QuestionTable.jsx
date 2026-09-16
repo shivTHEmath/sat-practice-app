@@ -1,5 +1,5 @@
 export default function QuestionTable({ table }) {
-  if (!table) return null;
+  if (!table?.headers?.length || !table?.rows?.length) return null;
   return (
     <figure className="my-4">
       {table.caption ? (
@@ -35,6 +35,9 @@ export default function QuestionTable({ table }) {
           </tbody>
         </table>
       </div>
+      {table.note ? (
+        <p className="mt-1 text-xs text-bb-muted">Note: {table.note}</p>
+      ) : null}
     </figure>
   );
 }

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { normalizeQuestion } from "./question-content";
 
 export const DIFFICULTIES = ["Easy", "Medium", "Hard"];
 
@@ -50,7 +51,7 @@ function loadQuestionBank() {
       .select("*")
       .then(({ data, error }) => {
         if (error) throw error;
-        return data || [];
+        return (data || []).map(normalizeQuestion);
       })
       .catch((error) => {
         questionBankPromise = undefined;
