@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import QuestionContent from "./QuestionContent";
+import RichText from "./RichText";
 import { clock, seconds } from "@/lib/format";
 
 const LETTERS = ["A", "B", "C", "D"];
@@ -43,7 +44,7 @@ export default function Review({ questions, answers, totalMs, onDone }) {
                   {i + 1}
                 </span>
                 <span className="flex-1 truncate text-sm">
-                  {q.skill} · {q.difficulty}
+                  {q.assessment || "SAT"} · {q.skill} · {q.difficulty}
                   {a.marked ? " · ★" : ""}
                 </span>
                 <span className="flex-none text-sm tabular-nums text-bb-muted">
@@ -66,7 +67,7 @@ export default function Review({ questions, answers, totalMs, onDone }) {
                   <div className="text-[1.02rem] leading-[1.7]">
                     <QuestionContent question={q} />
                   </div>
-                  <p className="mt-4 font-semibold">{q.prompt}</p>
+                  <RichText className="mt-4 font-semibold" html={q.prompt_html} fallback={q.prompt} />
                   <div className="mt-3 space-y-2">
                     {LETTERS.map((l) => {
                       const isCorrect = l === q.correct;
@@ -77,7 +78,12 @@ export default function Review({ questions, answers, totalMs, onDone }) {
                           className="review-choice rounded border px-3 py-2 text-[0.98rem]"
                           data-state={isCorrect ? "correct" : isPicked ? "wrong" : undefined}
                         >
-                          <span className="font-bold">{l}.</span> {q.choices[l]}
+                          <span className="font-bold">{l}.</span>{" "}
+                          <RichText
+                            className="inline-rich-text"
+                            html={q.choices_html?.[l]}
+                            fallback={q.choices[l]}
+                          />
                           {isPicked ? (
                             <span className="ml-2 text-xs text-bb-muted">your answer</span>
                           ) : null}
@@ -85,9 +91,11 @@ export default function Review({ questions, answers, totalMs, onDone }) {
                       );
                     })}
                   </div>
-                  <p className="mt-4 text-[0.98rem] leading-[1.65] text-bb-muted">
-                    {q.rationale}
-                  </p>
+                  <RichText
+                    className="mt-4 text-[0.98rem] leading-[1.65] text-bb-muted"
+                    html={q.rationale_html}
+                    fallback={q.rationale}
+                  />
                 </div>
               ) : null}
             </div>

@@ -2,7 +2,7 @@
 
 import { DIFFICULTIES, DOMAINS, SKILLS, SKILLS_BY_DOMAIN } from "@/lib/exam";
 
-export default function FilterBar({ range, domain, skill, onRange, onDomain, onSkill }) {
+export default function FilterBar({ assessment, range, domain, skill, onAssessment, onRange, onDomain, onSkill }) {
   const [lo, hi] = range;
   const allDifficulties = lo === 1 && hi === DIFFICULTIES.length;
   const value = allDifficulties ? 0 : lo;
@@ -40,6 +40,14 @@ export default function FilterBar({ range, domain, skill, onRange, onDomain, onS
       </div>
 
       <div className="topic-filters">
+        <label className="filter-select-group assessment-select">
+          <span>Test</span>
+          <select value={assessment} onChange={(event) => onAssessment(event.target.value)}>
+            <option value="SAT">SAT</option>
+            <option value="PSAT">PSAT</option>
+            <option value="Both">Both</option>
+          </select>
+        </label>
         <label className="filter-select-group">
           <span>Domain</span>
           <select value={domain} onChange={(event) => onDomain(event.target.value)}>

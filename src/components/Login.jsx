@@ -7,7 +7,7 @@ export default function Login({ onSignIn, onGuest, busy, error }) {
 
   return (
     <div className="mx-auto flex h-full max-w-sm flex-col justify-center px-6">
-      <h1 className="text-center text-2xl font-bold">SAT Reading &amp; Writing</h1>
+      <h1 className="text-center text-2xl font-bold">SAT + PSAT Reading &amp; Writing</h1>
 
       <form
         className="mt-8"

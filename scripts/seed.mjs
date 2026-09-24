@@ -24,10 +24,16 @@ if (!url || !key) {
 }
 
 const supabase = createClient(url, key, { auth: { persistSession: false } });
-const bank = JSON.parse(readFileSync(join(here, "bank.json"), "utf8"));
+const satBank = JSON.parse(readFileSync(join(here, "bank.json"), "utf8"));
+const psatBank = JSON.parse(readFileSync(join(here, "psat-bank.json"), "utf8"));
+const bank = [
+  ...satBank.map((question) => ({ assessment: "SAT", ...question })),
+  ...psatBank,
+];
 
 const rows = bank.map(normalizeQuestion).map((q) => ({
   id: q.id,
+  assessment: q.assessment,
   domain: q.domain,
   skill: q.skill,
   difficulty: q.difficulty,
@@ -37,6 +43,10 @@ const rows = bank.map(normalizeQuestion).map((q) => ({
   correct: q.correct,
   rationale: q.rationale,
   table_data: q.table_data,
+  passage_html: q.passage_html || null,
+  prompt_html: q.prompt_html || null,
+  choices_html: q.choices_html || null,
+  rationale_html: q.rationale_html || null,
 }));
 
 const SIZE = 100;

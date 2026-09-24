@@ -26,6 +26,10 @@ function rangeToDifficulties([lo, hi]) {
   return DIFFICULTIES.slice(lo - 1, hi);
 }
 
+function assessmentToValues(assessment) {
+  return assessment === "Both" ? [] : [assessment];
+}
+
 const blank = () => ({ selected: null, crossed: [], marked: false, ms: 0, checked: false });
 
 /**
@@ -33,7 +37,7 @@ const blank = () => ({ selected: null, crossed: [], marked: false, ms: 0, checke
  * with a fixed length and a countdown, so both share one code path.
  */
 export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
-  const [filters, setFilters] = useState({ range: FULL_RANGE, domain: "", skill: "" });
+  const [filters, setFilters] = useState({ assessment: "SAT", range: FULL_RANGE, domain: "", skill: "" });
   // Mirrors `filters` synchronously: several chips can be clicked inside one
   // render, and each needs to build on the previous click, not on stale props.
   const filtersRef = useRef(filters);
@@ -68,6 +72,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
         const active = nextFilters ?? filters;
         const preset = nextTest !== undefined ? nextTest : test;
         const set = await buildSession({
+          assessments: assessmentToValues(active.assessment),
           difficulties: rangeToDifficulties(active.range),
           domains: active.domain ? [active.domain] : [],
           skills: active.skill ? [active.skill] : [],
@@ -321,6 +326,10 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
     applyFilters({ ...filtersRef.current, range });
   }
 
+  function setAssessment(assessment) {
+    applyFilters({ ...filtersRef.current, assessment });
+  }
+
   function setDomain(domain) {
     const currentSkill = filtersRef.current.skill;
     const skill = !domain || SKILLS_BY_DOMAIN[domain].includes(currentSkill) ? currentSkill : "";
@@ -334,6 +343,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
   function filterSummary() {
     const difficulty = rangeToDifficulties(filters.range);
     return [
+      filters.assessment,
       difficulty.length === 1 ? difficulty[0] : "Mixed difficulty",
       filters.domain || "All domains",
       filters.skill || "All skills",
@@ -483,7 +493,9 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
               ? "Review problem"
               : test
                 ? `${test.label}: Reading and Writing`
-                : "SAT Practice"
+                : filters.assessment === "Both"
+                  ? "SAT + PSAT Practice"
+                  : `${filters.assessment} Practice`
           }
           timeLabel={
             limitMs ? clock(Math.max(0, limitMs - sessionElapsed)) : seconds(onThisQuestion)
@@ -510,9 +522,11 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
             <>
               {!test && !reviewQuestion ? (
                 <FilterBar
+                  assessment={filters.assessment}
                   range={filters.range}
                   domain={filters.domain}
                   skill={filters.skill}
+                  onAssessment={setAssessment}
                   onRange={setRange}
                   onDomain={setDomain}
                   onSkill={setSkill}

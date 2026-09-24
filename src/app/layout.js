@@ -13,9 +13,9 @@ const themeScript = `(() => {
 })();`;
 
 export const metadata = {
-  title: "SAT Reading & Writing Practice",
+  title: "SAT + PSAT Reading & Writing Practice",
   description:
-    "Bluebook-style practice for SAT Reading and Writing, with optional instant answer checking and per-question timing.",
+    "Bluebook-style practice for SAT and PSAT Reading and Writing, with optional instant answer checking and per-question timing.",
 };
 
 export const viewport = {

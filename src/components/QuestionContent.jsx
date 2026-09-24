@@ -1,7 +1,11 @@
 import { parsePassage } from "@/lib/passage-structure";
 import QuestionTable from "./QuestionTable";
+import RichText from "./RichText";
 
 export default function QuestionContent({ question }) {
+  if (question.passage_html) {
+    return <RichText html={question.passage_html} fallback={question.passage} />;
+  }
   const content = parsePassage(question.passage);
 
   return (

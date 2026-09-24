@@ -29,7 +29,7 @@ export default function MissedQuestions({ items, loading, error, onOpen, onClose
               <span className="missed-number">{index + 1}</span>
               <span className="missed-main">
                 <strong>{item.question.prompt}</strong>
-                <span>{item.question.difficulty} · {item.question.domain}</span>
+                <span>{item.question.assessment || "SAT"} · {item.question.difficulty} · {item.question.domain}</span>
               </span>
               <span className="missed-status">Review</span>
               <span aria-hidden="true" className="missed-arrow">›</span>

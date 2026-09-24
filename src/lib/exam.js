@@ -57,23 +57,32 @@ function shuffle(list) {
 
 let questionBankPromise;
 
+async function fetchQuestionBank() {
+  const pageSize = 1000;
+  const rows = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("sat_questions")
+      .select("*")
+      .order("id")
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return rows.map(normalizeQuestion);
+}
+
 /**
- * The bank is small enough to keep in memory. Fetching it once avoids the old
- * two-request cycle on every refill (all matching ids, then selected rows).
+ * The bank is small enough to keep in memory. Fetch it in Data API-sized pages
+ * once, then filter locally so refills do not issue repeated queries.
  */
 function loadQuestionBank() {
   if (!questionBankPromise) {
-    questionBankPromise = supabase
-      .from("sat_questions")
-      .select("*")
-      .then(({ data, error }) => {
-        if (error) throw error;
-        return (data || []).map(normalizeQuestion);
-      })
-      .catch((error) => {
-        questionBankPromise = undefined;
-        throw error;
-      });
+    questionBankPromise = fetchQuestionBank().catch((error) => {
+      questionBankPromise = undefined;
+      throw error;
+    });
   }
   return questionBankPromise;
 }
@@ -115,6 +124,7 @@ function orderLikeModule(questions) {
 
 /** Build a filtered question set from the cached bank. */
 export async function buildSession({
+  assessments,
   difficulties,
   domains,
   skills,
@@ -128,6 +138,7 @@ export async function buildSession({
   const candidates = bank.filter(
     (question) =>
       !skipped.has(question.id) &&
+      (!assessments?.length || assessments.includes(question.assessment || "SAT")) &&
       (!difficulties?.length || difficulties.includes(question.difficulty)) &&
       (!domains?.length || domains.includes(question.domain)) &&
       (!skills?.length || skills.includes(question.skill))

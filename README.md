@@ -1,6 +1,6 @@
-# SAT Reading & Writing Practice
+# SAT + PSAT Reading & Writing Practice
 
-A deliberately small Bluebook-style practice app for SAT Reading and Writing.
+A deliberately small Bluebook-style practice app for SAT and PSAT Reading and Writing.
 It serves questions from a College Board question-bank export, with optional
 instant answer checking and per-question timing.
 

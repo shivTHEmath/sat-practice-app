@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Passage from "./Passage";
+import RichText from "./RichText";
 
 const LETTERS = ["A", "B", "C", "D"];
 
@@ -172,9 +173,9 @@ export default function BluebookExam({
             </button>
           </div>
 
-          <p className="question-prompt">
-            {question.prompt}
-          </p>
+          <div className="question-prompt">
+            <RichText html={question.prompt_html} fallback={question.prompt} />
+          </div>
 
           <div className="choice-list">
             {LETTERS.map((letter) => {
@@ -197,7 +198,11 @@ export default function BluebookExam({
                     aria-label={`${letter}. ${question.choices[letter]}`}
                   >
                     <span className="bb-choice-letter">{letter}</span>
-                    <span className="bb-choice-body">{question.choices[letter]}</span>
+                    <RichText
+                      className="bb-choice-body"
+                      html={question.choices_html?.[letter]}
+                      fallback={question.choices[letter]}
+                    />
                   </button>
                   {crossOutOn ? (
                     <button
@@ -228,11 +233,13 @@ export default function BluebookExam({
               >
                 {gotItRight ? "Correct" : `Incorrect — the answer is ${question.correct}`}
               </p>
-              <p className="text-[0.98rem] leading-[1.65] text-bb-muted">
-                {question.rationale}
-              </p>
+              <RichText
+                className="text-[0.98rem] leading-[1.65] text-bb-muted"
+                html={question.rationale_html}
+                fallback={question.rationale}
+              />
               <p className="mt-3 text-xs text-bb-muted">
-                {question.domain} · {question.skill} · {question.difficulty}
+                {question.assessment || "SAT"} · {question.domain} · {question.skill} · {question.difficulty}
               </p>
             </div>
           ) : null}

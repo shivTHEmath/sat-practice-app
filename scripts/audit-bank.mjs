@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { normalizeQuestion } from "../src/lib/question-content.js";
 import { parsePassage } from "../src/lib/passage-structure.js";
 
-const raw = JSON.parse(readFileSync(new URL("./bank.json", import.meta.url), "utf8"));
+const sat = JSON.parse(readFileSync(new URL("./bank.json", import.meta.url), "utf8"))
+  .map((question) => ({ assessment: "SAT", ...question }));
+const psat = JSON.parse(readFileSync(new URL("./psat-bank.json", import.meta.url), "utf8"));
+const raw = [...sat, ...psat];
 const bank = raw.map(normalizeQuestion);
 const errors = [];
 const ids = new Set();
@@ -13,11 +16,12 @@ for (const question of bank) {
   if (ids.has(question.id)) errors.push(`${label}: duplicate id`);
   ids.add(question.id);
 
-  for (const field of ["id", "domain", "skill", "difficulty", "passage", "prompt", "rationale"]) {
+  for (const field of ["id", "assessment", "domain", "skill", "difficulty", "passage", "prompt", "rationale"]) {
     if (typeof question[field] !== "string" || !question[field].trim()) {
       errors.push(`${label}: missing ${field}`);
     }
   }
+  if (!["SAT", "PSAT"].includes(question.assessment)) errors.push(`${label}: invalid assessment`);
   if (!letters.includes(question.correct)) errors.push(`${label}: invalid correct answer`);
   for (const letter of letters) {
     if (typeof question.choices?.[letter] !== "string" || !question.choices[letter].trim()) {
@@ -26,7 +30,8 @@ for (const question of bank) {
   }
 
   const needsTable = /\btable\b/i.test(question.prompt);
-  if (needsTable && !question.table_data) errors.push(`${label}: prompt references a missing table`);
+  const hasRichTable = /<table\b/i.test(question.passage_html || "");
+  if (needsTable && !question.table_data && !hasRichTable) errors.push(`${label}: prompt references a missing table`);
   if (!needsTable && question.table_data) errors.push(`${label}: unexpected table data`);
 
   if (question.table_data) {
@@ -42,15 +47,20 @@ for (const question of bank) {
   }
 
   const passage = parsePassage(question.passage);
-  if (/^Text 1\b/i.test(question.passage) && passage.type !== "paired") {
+  if (!question.passage_html && /^Text 1\b/i.test(question.passage) && passage.type !== "paired") {
     errors.push(`${label}: paired texts could not be separated`);
   }
-  if (/^While researching a topic, a student has taken the following notes:/i.test(question.passage)) {
+  if (!question.passage_html && /^While researching a topic, a student has taken the following notes:/i.test(question.passage)) {
     if (passage.type !== "notes" || passage.items.length < 2) {
       errors.push(`${label}: research notes could not be structured`);
     }
   }
 }
+
+const assessmentCounts = raw.reduce((counts, question) => {
+  counts[question.assessment] = (counts[question.assessment] || 0) + 1;
+  return counts;
+}, {});
 
 if (errors.length) {
   console.error(errors.join("\n"));
@@ -60,4 +70,4 @@ if (errors.length) {
 const tableCount = bank.filter((question) => question.table_data).length;
 const pairedCount = bank.filter((question) => parsePassage(question.passage).type === "paired").length;
 const notesCount = bank.filter((question) => parsePassage(question.passage).type === "notes").length;
-console.log(`Audited ${bank.length} questions: ${tableCount} tables, ${pairedCount} paired passages, ${notesCount} note sets, no structural errors.`);
+console.log(`Audited ${bank.length} questions (${assessmentCounts.SAT} SAT, ${assessmentCounts.PSAT} PSAT): ${tableCount} structured tables, ${pairedCount} paired passages, ${notesCount} note sets, no structural errors.`);
