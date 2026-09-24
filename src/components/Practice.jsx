@@ -9,6 +9,7 @@ import Stats from "./Stats";
 import {
   DIFFICULTIES,
   MODULE_LENGTHS,
+  SKILLS_BY_DOMAIN,
   buildSession,
   getQuestionById,
   loadPracticeHistory,
@@ -32,7 +33,7 @@ const blank = () => ({ selected: null, crossed: [], marked: false, ms: 0, checke
  * with a fixed length and a countdown, so both share one code path.
  */
 export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
-  const [filters, setFilters] = useState({ range: FULL_RANGE });
+  const [filters, setFilters] = useState({ range: FULL_RANGE, domain: "", skill: "" });
   // Mirrors `filters` synchronously: several chips can be clicked inside one
   // render, and each needs to build on the previous click, not on stale props.
   const filtersRef = useRef(filters);
@@ -68,6 +69,8 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
         const preset = nextTest !== undefined ? nextTest : test;
         const set = await buildSession({
           difficulties: rangeToDifficulties(active.range),
+          domains: active.domain ? [active.domain] : [],
+          skills: active.skill ? [active.skill] : [],
           count: preset ? preset.count : BATCH,
           weighted: Boolean(preset),
           exclude: reset ? [] : questions.map((q) => q.id),
@@ -77,8 +80,8 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
         if (!set.length) {
           setError(
             user.id
-              ? "You’ve completed every available question at this difficulty."
-              : "No questions match that difficulty."
+              ? "You’ve completed every available question matching these filters."
+              : "No questions match these filters."
           );
           setQuestions([]);
           return;
@@ -318,6 +321,25 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
     applyFilters({ ...filtersRef.current, range });
   }
 
+  function setDomain(domain) {
+    const currentSkill = filtersRef.current.skill;
+    const skill = !domain || SKILLS_BY_DOMAIN[domain].includes(currentSkill) ? currentSkill : "";
+    applyFilters({ ...filtersRef.current, domain, skill });
+  }
+
+  function setSkill(skill) {
+    applyFilters({ ...filtersRef.current, skill });
+  }
+
+  function filterSummary() {
+    const difficulty = rangeToDifficulties(filters.range);
+    return [
+      difficulty.length === 1 ? difficulty[0] : "Mixed difficulty",
+      filters.domain || "All domains",
+      filters.skill || "All skills",
+    ].join(" · ");
+  }
+
   function startTest(preset) {
     setTest(preset);
     setReviewQuestion(null);
@@ -420,6 +442,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
         <div className="test-picker-copy">
           <h2>Timed practice test</h2>
           <p>Answers are reviewed after the module.</p>
+          <p className="test-filter-summary">Uses current filters: {filterSummary()}</p>
         </div>
         <div className="test-presets">
           {MODULE_LENGTHS.map((preset) => (
@@ -485,7 +508,16 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
           toolbar={toolbar}
           filters={
             <>
-              {!test && !reviewQuestion ? <FilterBar range={filters.range} onRange={setRange} /> : null}
+              {!test && !reviewQuestion ? (
+                <FilterBar
+                  range={filters.range}
+                  domain={filters.domain}
+                  skill={filters.skill}
+                  onRange={setRange}
+                  onDomain={setDomain}
+                  onSkill={setSkill}
+                />
+              ) : null}
               {secondaryPanel}
             </>
           }

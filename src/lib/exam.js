@@ -10,6 +10,23 @@ export const DOMAINS = [
   "Standard English Conventions",
 ];
 
+export const SKILLS_BY_DOMAIN = {
+  "Information and Ideas": [
+    "Central Ideas and Details",
+    "Command of Evidence",
+    "Inferences",
+  ],
+  "Craft and Structure": [
+    "Cross-Text Connections",
+    "Text Structure and Purpose",
+    "Words in Context",
+  ],
+  "Expression of Ideas": ["Rhetorical Synthesis", "Transitions"],
+  "Standard English Conventions": ["Boundaries", "Form, Structure, and Sense"],
+};
+
+export const SKILLS = DOMAINS.flatMap((domain) => SKILLS_BY_DOMAIN[domain]);
+
 /** Real Bluebook R&W module shape: 27 questions in 32 minutes. */
 export const MODULE_LENGTHS = [
   { key: "full", label: "Full module", count: 27, minutes: 32 },
