@@ -125,6 +125,7 @@ function orderLikeModule(questions) {
 /** Build a filtered question set from the cached bank. */
 export async function buildSession({
   assessments,
+  tests = ["Reading and Writing"],
   difficulties,
   domains,
   skills,
@@ -139,6 +140,7 @@ export async function buildSession({
     (question) =>
       !skipped.has(question.id) &&
       (!assessments?.length || assessments.includes(question.assessment || "SAT")) &&
+      (!tests?.length || tests.includes(question.test || "Reading and Writing")) &&
       (!difficulties?.length || difficulties.includes(question.difficulty)) &&
       (!domains?.length || domains.includes(question.domain)) &&
       (!skills?.length || skills.includes(question.skill))

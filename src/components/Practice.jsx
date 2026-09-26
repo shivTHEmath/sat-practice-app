@@ -437,6 +437,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
         ) : (
           <button type="button" onClick={() => setPanel("test")}>Take a timed practice test <span>›</span></button>
         )}
+        {!test ? <button type="button" onClick={() => window.location.assign("/mock")}>Take a full PSAT mock test <span>›</span></button> : null}
         {user.id && !test ? <button type="button" onClick={() => setPanel("missed")}>Review missed questions <span>{history.missed.length || ""} ›</span></button> : null}
         {user.id && !test ? <button type="button" onClick={() => setPanel("stats")}>View performance <span>›</span></button> : null}
         <button type="button" onClick={onToggleTheme} aria-pressed={theme === "dark"}>

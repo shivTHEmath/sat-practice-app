@@ -1,4 +1,5 @@
 import "./globals.css";
+import MathJaxProvider from "@/components/MathJaxProvider";
 
 const themeScript = `(() => {
   try {
@@ -29,7 +30,7 @@ export default function RootLayout({ children }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="h-full">{children}</body>
+      <body className="h-full"><MathJaxProvider>{children}</MathJaxProvider></body>
     </html>
   );
 }
