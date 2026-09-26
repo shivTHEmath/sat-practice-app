@@ -36,9 +36,13 @@ go. Everything else is secondary and lives in the toolbar.
   Check Your Work page, with feedback held until the end review that
   bar-charts how long each question took. Filters are hidden during a test.
   Preset modules follow the real domain mix and order.
-- **PSAT mock tests**: `/mock` runs two full-length, fixed-form PSAT mocks
-  (Reading and Writing, a 10-minute break, then Math with Desmos and the
-  reference sheet) and reports an estimated score with an answer review.
+- **Mock tests**: `/mock` runs full-length, fixed-form mocks (Reading and
+  Writing, a 10-minute break, then Math with Desmos and the reference sheet)
+  and reports an estimated score with an answer review. There are five PSAT
+  mocks in a typical Bluebook difficulty mix and five SAT mocks that are
+  deliberately harder than Bluebook, which the page says up front. Mocks are
+  assembled by `scripts/pick-mocks.mjs` (no question appears in two mocks) and
+  loaded with `npm run seed-mocks`.
 - **Stats**: one line by default, "X / Y correct" plus the average time per
   question. An `advanced` link expands accuracy and average time broken down by
   subject and by difficulty. Practice answers are recorded as soon as an answer

@@ -1,4 +1,4 @@
-/** Upsert the generated Math bank with a service-role key. */
+/** Upsert a generated Math bank (default scripts/math-bank.json) with a service-role key. */
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -15,7 +15,8 @@ const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !key) throw new Error("Need NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local");
 
 const supabase = createClient(url, key, { auth: { persistSession: false } });
-const rows = JSON.parse(readFileSync(join(here, "math-bank.json"), "utf8"));
+const file = process.argv[2] || "math-bank.json";
+const rows = JSON.parse(readFileSync(join(here, file), "utf8"));
 const size = 100;
 for (let start = 0; start < rows.length; start += size) {
   const { error } = await supabase.from("sat_questions").upsert(rows.slice(start, start + size));

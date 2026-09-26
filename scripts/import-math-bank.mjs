@@ -5,6 +5,8 @@
  * detailed disclosed records supply semantic HTML/MathML, answer choices, and
  * the accepted answers for student-produced responses. It writes a local JSON
  * bank; run `node scripts/seed-math.mjs` afterwards to upsert it to Supabase.
+ * The export's Assessment column decides SAT or PSAT: an SAT export writes
+ * sat-math-bank.json (seed it with `node scripts/seed-math.mjs sat-math-bank.json`).
  *
  * Usage:
  *   node scripts/import-math-bank.mjs /path/to/questionbank-export.pdf
@@ -15,9 +17,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outputPath = join(here, "math-bank.json");
 const pdfPath = process.argv[2];
-const assessmentId = 100; // PSAT/NMSQT and PSAT 10, matching this export.
+// College Board question bank assessment IDs: 99 is SAT, 100 is PSAT/NMSQT and PSAT 10.
+const ASSESSMENTS = {
+  SAT: { id: 99, output: "sat-math-bank.json" },
+  PSAT: { id: 100, output: "math-bank.json" },
+};
 const metadataUrl = "https://qbank-api.collegeboard.org/msreportingquestionbank-prod/questionbank/digital/get-questions";
 const detailUrl = "https://qbank-api.collegeboard.org/msreportingquestionbank-prod/questionbank/digital/get-question";
 const bulkDetailUrl = "https://qbank-api.collegeboard.org/msreportingquestionbank-prod/questionbank/pdf-download";
@@ -149,7 +154,7 @@ function toRow(metadata, payload, source) {
 
   return {
     id: metadata.questionId,
-    assessment: "PSAT",
+    assessment,
     test: "Math",
     domain: metadata.primary_class_cd_desc,
     skill: metadata.skill_desc,
@@ -178,6 +183,11 @@ function toRow(metadata, payload, source) {
 }
 
 const pdfText = runPdfToText(pdfPath);
+const assessment = /PSAT\/NMSQT/.test(pdfText) ? "PSAT" : /\bSAT\b/.test(pdfText) ? "SAT" : null;
+if (!assessment) throw new Error("Could not tell whether this export is SAT or PSAT.");
+const { id: assessmentId, output } = ASSESSMENTS[assessment];
+const outputPath = join(here, output);
+console.log(`Importing ${assessment} Math`);
 const ids = selectedQuestionIds(pdfText);
 const allMetadata = await jsonFetch(metadataUrl, {
   method: "POST",

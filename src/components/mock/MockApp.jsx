@@ -32,7 +32,80 @@ function describeProgress(mock, progress) {
   return `${moduleTitle(mod)} · ${formatClock(progress.remainingMs)} left`;
 }
 
-function MockHome({ user, mocks, results, onStart, onResume, onRestart, onViewResult, onSignOut }) {
+const GROUPS = [
+  { assessment: "PSAT", title: "PSAT/NMSQT" },
+  { assessment: "SAT", title: "SAT" },
+];
+
+function sectionTotals(mock) {
+  return mock.modules.reduce((acc, m) => {
+    const entry = acc[m.section] || { questions: 0, minutes: 0 };
+    entry.questions += m.question_ids.length;
+    entry.minutes += m.minutes;
+    acc[m.section] = entry;
+    return acc;
+  }, {});
+}
+
+function MockCard({ mock, user, results, onStart, onResume, onRestart, onViewResult }) {
+  const progress = loadProgress(user, mock.id);
+  const past = results.filter((r) => r.mock_id === mock.id);
+  const totals = sectionTotals(mock);
+  const rw = totals["Reading and Writing"];
+  const math = totals.Math;
+  return (
+    <article className="mk-home-card">
+      <div className="mk-home-card-kicker">
+        {mock.assessment}
+        {mock.assessment === "SAT" && mock.description ? (
+          <span className="mk-hard-badge">Harder than Bluebook</span>
+        ) : null}
+      </div>
+      <h2>{mock.name}</h2>
+      <ul className="mk-home-facts">
+        {rw ? <li>Reading and Writing: {rw.questions} questions, {rw.minutes} min</li> : null}
+        {math ? <li>Math: {math.questions} questions, {math.minutes} min</li> : null}
+        <li>About {Math.round((totalMinutes(mock) + 10) / 6) / 10} hours with the break</li>
+      </ul>
+      {progress ? (
+        <p className="mk-home-progress">In progress: {describeProgress(mock, progress)}</p>
+      ) : null}
+      <div className="mk-home-actions">
+        {progress ? (
+          <>
+            <button type="button" className="mk-btn-blue" onClick={() => onResume(mock, progress)}>
+              Resume
+            </button>
+            <button type="button" className="mk-btn-link" onClick={() => onRestart(mock)}>
+              Start over
+            </button>
+          </>
+        ) : (
+          <button type="button" className="mk-btn-blue" onClick={() => onStart(mock)}>
+            {past.length ? "Take Again" : "Start"}
+          </button>
+        )}
+      </div>
+      {past.length ? (
+        <div className="mk-home-history">
+          <h3>Your scores</h3>
+          {past.map((r) => (
+            <button key={r.id} type="button" className="mk-home-history-row" onClick={() => onViewResult(mock, r)}>
+              <span>{new Date(r.completed_at).toLocaleDateString()}</span>
+              <strong>{r.total_score}</strong>
+              <span>
+                R&amp;W {r.rw_score} · Math {r.math_score}
+              </span>
+              <span className="mk-home-history-link">View</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function MockHome({ user, mocks, results, onSignOut, ...actions }) {
   return (
     <div className="mk-home">
       <header className="mk-home-header">
@@ -48,7 +121,7 @@ function MockHome({ user, mocks, results, onStart, onResume, onRestart, onViewRe
       <main className="mk-home-main">
         <h1>Full-Length Practice</h1>
         <p className="mk-home-lede">
-          Timed, full-length PSAT mocks in the Bluebook testing layout. Each has two Reading and
+          Timed, full-length mocks in the Bluebook testing layout. Each has two Reading and
           Writing modules, a 10-minute break, and two Math modules with the Desmos calculator.
         </p>
         {!user.id ? (
@@ -56,61 +129,26 @@ function MockHome({ user, mocks, results, onStart, onResume, onRestart, onViewRe
             You’re testing as a guest. Your score will be shown when you finish but not saved.
           </p>
         ) : null}
-        <div className="mk-home-cards">
-          {mocks.map((mock) => {
-            const progress = loadProgress(user, mock.id);
-            const past = results.filter((r) => r.mock_id === mock.id);
-            const counts = mock.modules.reduce((acc, m) => {
-              acc[m.section] = (acc[m.section] || 0) + m.question_ids.length;
-              return acc;
-            }, {});
-            return (
-              <article key={mock.id} className="mk-home-card">
-                <div className="mk-home-card-kicker">{mock.assessment}</div>
-                <h2>{mock.name}</h2>
-                <ul className="mk-home-facts">
-                  <li>Reading and Writing: {counts["Reading and Writing"]} questions, 64 min</li>
-                  <li>Math: {counts.Math} questions, 70 min</li>
-                  <li>About {Math.round((totalMinutes(mock) + 10) / 6) / 10} hours with the break</li>
-                </ul>
-                {progress ? (
-                  <p className="mk-home-progress">In progress: {describeProgress(mock, progress)}</p>
-                ) : null}
-                <div className="mk-home-actions">
-                  {progress ? (
-                    <>
-                      <button type="button" className="mk-btn-blue" onClick={() => onResume(mock, progress)}>
-                        Resume
-                      </button>
-                      <button type="button" className="mk-btn-link" onClick={() => onRestart(mock)}>
-                        Start over
-                      </button>
-                    </>
-                  ) : (
-                    <button type="button" className="mk-btn-blue" onClick={() => onStart(mock)}>
-                      {past.length ? "Take Again" : "Start"}
-                    </button>
-                  )}
-                </div>
-                {past.length ? (
-                  <div className="mk-home-history">
-                    <h3>Your scores</h3>
-                    {past.map((r) => (
-                      <button key={r.id} type="button" className="mk-home-history-row" onClick={() => onViewResult(mock, r)}>
-                        <span>{new Date(r.completed_at).toLocaleDateString()}</span>
-                        <strong>{r.total_score}</strong>
-                        <span>
-                          R&amp;W {r.rw_score} · Math {r.math_score}
-                        </span>
-                        <span className="mk-home-history-link">View</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
+        {GROUPS.map(({ assessment, title }) => {
+          const group = mocks.filter((m) => m.assessment === assessment);
+          if (!group.length) return null;
+          const note = group.find((m) => m.description)?.description;
+          return (
+            <section key={assessment} className="mk-home-group">
+              <h2 className="mk-home-group-title">{title}</h2>
+              {note ? (
+                <p className="mk-home-note" data-assessment={assessment}>
+                  {note}
+                </p>
+              ) : null}
+              <div className="mk-home-cards">
+                {group.map((mock) => (
+                  <MockCard key={mock.id} mock={mock} user={user} results={results} {...actions} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </main>
     </div>
   );

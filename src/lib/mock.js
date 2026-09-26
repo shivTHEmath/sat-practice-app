@@ -103,34 +103,57 @@ export function isAnswerCorrect(question, selected) {
 }
 
 /*
- * Estimated PSAT scaling for this fixed, harder-route form. Official
- * conversions for adaptive forms are not published, so this curve is
- * interpolated between anchor points and rounded to the nearest 10.
+ * Estimated section scaling. Official conversions for adaptive forms are not
+ * published, so each curve is interpolated between anchor points and rounded
+ * to the nearest 10. PSAT forms use the harder second module; SAT forms are
+ * harder than Bluebook throughout, so their curve is more generous.
  */
-const CURVE = [
-  [0, 160],
-  [0.2, 290],
-  [0.35, 390],
-  [0.5, 480],
-  [0.65, 570],
-  [0.8, 650],
-  [0.9, 700],
-  [0.96, 740],
-  [1, 760],
-];
+const CURVES = {
+  PSAT: [
+    [0, 160],
+    [0.2, 290],
+    [0.35, 390],
+    [0.5, 480],
+    [0.65, 570],
+    [0.8, 650],
+    [0.9, 700],
+    [0.96, 740],
+    [1, 760],
+  ],
+  SAT: [
+    [0, 200],
+    [0.2, 340],
+    [0.35, 450],
+    [0.5, 550],
+    [0.65, 630],
+    [0.8, 710],
+    [0.9, 760],
+    [0.96, 790],
+    [1, 800],
+  ],
+};
 
-export function scaleScore(raw, total) {
-  if (!total) return 160;
+/** Section and total score ranges for the score report. */
+export function scoreRange(assessment = "PSAT") {
+  const curve = CURVES[assessment] || CURVES.PSAT;
+  const low = curve[0][1];
+  const high = curve[curve.length - 1][1];
+  return { section: `${low}–${high}`, total: `${low * 2}–${high * 2}` };
+}
+
+export function scaleScore(raw, total, assessment = "PSAT") {
+  const curve = CURVES[assessment] || CURVES.PSAT;
+  if (!total) return curve[0][1];
   const pct = raw / total;
-  for (let i = 1; i < CURVE.length; i += 1) {
-    const [x1, y1] = CURVE[i];
-    const [x0, y0] = CURVE[i - 1];
+  for (let i = 1; i < curve.length; i += 1) {
+    const [x1, y1] = curve[i];
+    const [x0, y0] = curve[i - 1];
     if (pct <= x1) {
       const score = y0 + ((pct - x0) / (x1 - x0)) * (y1 - y0);
       return Math.round(score / 10) * 10;
     }
   }
-  return 760;
+  return curve[curve.length - 1][1];
 }
 
 /** Raw and scaled results plus a per-question row for the score report. */
@@ -162,8 +185,8 @@ export function scoreMock(mock, questionsById, answers) {
   });
   const rw = sections["Reading and Writing"];
   const math = sections.Math;
-  const rwScore = scaleScore(rw.raw, rw.total);
-  const mathScore = scaleScore(math.raw, math.total);
+  const rwScore = scaleScore(rw.raw, rw.total, mock.assessment);
+  const mathScore = scaleScore(math.raw, math.total, mock.assessment);
   return {
     rw: { ...rw, score: rwScore },
     math: { ...math, score: mathScore },

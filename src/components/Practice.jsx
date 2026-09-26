@@ -462,7 +462,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
       ? []
       : [
           { key: "test", icon: <ClockIcon />, label: "Take a timed practice test", onClick: () => setPanel("test") },
-          { key: "mock", icon: <TestIcon />, label: "Take a full PSAT mock test", onClick: () => window.location.assign("/mock") },
+          { key: "mock", icon: <TestIcon />, label: "Take a full-length mock test", onClick: () => window.location.assign("/mock") },
           ...(user.id
             ? [
                 {

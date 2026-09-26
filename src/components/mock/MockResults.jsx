@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import QuestionContent from "../QuestionContent";
 import RichText from "../RichText";
 import { ChevronIcon, CloseIcon } from "./icons";
-import { acceptedAnswers, isSpr, moduleTitle, scoreMock } from "@/lib/mock";
+import { acceptedAnswers, isSpr, moduleTitle, scoreMock, scoreRange } from "@/lib/mock";
 
 const LETTERS = ["A", "B", "C", "D"];
 const FILTERS = [
@@ -123,6 +123,7 @@ function ReviewQuestion({ row, question, onClose, onPrev, onNext, hasPrev, hasNe
 /** Score report: estimated scaled scores, module raw scores, answer review. */
 export default function MockResults({ mock, questionsById, answers, onHome }) {
   const score = useMemo(() => scoreMock(mock, questionsById, answers), [mock, questionsById, answers]);
+  const range = scoreRange(mock.assessment);
   const [filter, setFilter] = useState("all");
   const [openIndex, setOpenIndex] = useState(null);
 
@@ -150,27 +151,28 @@ export default function MockResults({ mock, questionsById, answers, onHome }) {
           <div className="mk-score-total">
             <div className="mk-score-label">Your Total Score</div>
             <div className="mk-score-number">{score.total}</div>
-            <div className="mk-score-range">320–1520</div>
+            <div className="mk-score-range">{range.total}</div>
           </div>
           <div className="mk-score-sections">
             <div>
               <div className="mk-score-label">Reading and Writing</div>
               <div className="mk-score-number mk-score-sm">{score.rw.score}</div>
               <div className="mk-score-range">
-                160–760 · {score.rw.raw} of {score.rw.total} correct
+                {range.section} · {score.rw.raw} of {score.rw.total} correct
               </div>
             </div>
             <div>
               <div className="mk-score-label">Math</div>
               <div className="mk-score-number mk-score-sm">{score.math.score}</div>
               <div className="mk-score-range">
-                160–760 · {score.math.raw} of {score.math.total} correct
+                {range.section} · {score.math.raw} of {score.math.total} correct
               </div>
             </div>
           </div>
           <p className="mk-score-note">
-            Estimated score. Official PSAT scores come from College Board’s adaptive scoring,
-            which isn’t published; this estimate uses a fixed curve for a harder-route Module 2.
+            {mock.assessment === "SAT"
+              ? "Estimated score. This mock is harder than Bluebook’s practice tests, so the estimate uses a more generous curve than a standard SAT form. Official scoring for adaptive tests isn’t published."
+              : "Estimated score. Official PSAT scores come from College Board’s adaptive scoring, which isn’t published; this estimate uses a fixed curve for a harder-route Module 2."}
           </p>
         </section>
 
