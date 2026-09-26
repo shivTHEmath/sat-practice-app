@@ -31,7 +31,13 @@ import {
   StrikeLetterIcon,
   WarningIcon,
 } from "./icons";
-import { formatClock, isSpr, sanitizeSprInput } from "@/lib/mock";
+import {
+  acceptedAnswers,
+  formatClock,
+  isAnswerCorrect,
+  isSpr,
+  sanitizeSprInput,
+} from "@/lib/mock";
 
 // The clock re-renders the exam every tick. Typeset content must not re-render
 // with it, or MathJax re-typesets and wipes any highlights inside it.
@@ -64,8 +70,11 @@ function QuestionBlock({
   onCross,
   onMark,
   showStimulus,
+  reveal = false,
 }) {
   const spr = isSpr(question);
+  const answered = answer.selected != null && answer.selected !== "";
+  const gotItRight = reveal && isAnswerCorrect(question, answer.selected);
   return (
     <div className="mk-question">
       <div className="mk-qbar">
@@ -81,7 +90,7 @@ function QuestionBlock({
           </span>
           Mark for Review
         </button>
-        {!spr ? (
+        {!spr && !reveal ? (
           <button
             type="button"
             className="mk-eliminator"
@@ -111,6 +120,7 @@ function QuestionBlock({
           <input
             className="mk-spr-input"
             value={answer.selected || ""}
+            readOnly={reveal}
             inputMode="decimal"
             autoComplete="off"
             spellCheck={false}
@@ -126,14 +136,19 @@ function QuestionBlock({
           {LETTERS.filter((l) => question.choices?.[l] != null).map((letter) => {
             const crossed = answer.crossed?.includes(letter);
             const selected = answer.selected === letter;
+            let state;
+            if (reveal && letter === question.correct) state = "correct";
+            else if (reveal && selected) state = "wrong";
             return (
               <div key={letter} className="mk-choice-row">
                 <button
                   type="button"
                   className="mk-choice"
-                  data-selected={selected}
+                  data-selected={selected && !reveal}
                   data-crossed={crossed}
+                  data-state={state}
                   aria-pressed={selected}
+                  disabled={reveal}
                   onClick={() => onSelect(letter)}
                 >
                   <span className="mk-choice-letter">{letter}</span>
@@ -144,7 +159,7 @@ function QuestionBlock({
                     />
                   </span>
                 </button>
-                {crossOutOn ? (
+                {crossOutOn && !reveal ? (
                   crossed ? (
                     <button type="button" className="mk-undo" onClick={() => onCross(letter)}>
                       Undo
@@ -165,6 +180,24 @@ function QuestionBlock({
           })}
         </div>
       )}
+
+      {reveal ? (
+        <div className="mk-feedback">
+          <p className="mk-feedback-verdict" data-state={gotItRight ? "correct" : "wrong"}>
+            {gotItRight
+              ? "Correct"
+              : `${answered ? "Incorrect" : "Not answered"}. The correct answer is ${
+                  spr ? acceptedAnswers(question).join(" or ") : question.correct
+                }.`}
+          </p>
+          <div className="mk-feedback-body">
+            <RichText html={question.rationale_html} fallback={question.rationale} />
+          </div>
+          <p className="mk-feedback-meta">
+            {question.assessment || "SAT"} · {question.domain} · {question.skill} · {question.difficulty}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -282,6 +315,16 @@ export default function MockExam({
   onBack,
   onNext,
   onExit,
+  timeLabel,
+  reveal = false,
+  navigator = true,
+  canBack,
+  canNext = true,
+  nextLabel = "Next",
+  moreItems,
+  banner,
+  keyboardNav = false,
+  exitMessage = "Your answers and the time left in this module are saved on this device. You can resume this practice test from the mock test page.",
 }) {
   const [split, setSplit] = useState(50);
   const [timerHidden, setTimerHidden] = useState(false);
@@ -304,7 +347,8 @@ export default function MockExam({
   const answer = (question && answers[question.id]) || {};
   const spr = isSpr(question);
   const split2 = !isMath || spr;
-  const lowTime = remainingMs <= FIVE_MINUTES;
+  const lowTime = remainingMs != null && remainingMs <= FIVE_MINUTES;
+  const showBack = canBack ?? (stage === "review" || qIndex > 0);
 
   useEffect(() => {
     if (lowTime && !noticeShown.current && remainingMs > 0) {
@@ -348,10 +392,24 @@ export default function MockExam({
         setMoreOpen(false);
         return;
       }
-      if (stage !== "question" || !question || spr) return;
+      if (stage !== "question" || !question) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const tag = document.activeElement?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (keyboardNav) {
+        const onButton = tag === "BUTTON";
+        if ((event.key === "ArrowRight" || (event.key === "Enter" && !onButton)) && canNext) {
+          event.preventDefault();
+          onNext();
+          return;
+        }
+        if (event.key === "ArrowLeft" && showBack) {
+          event.preventDefault();
+          onBack();
+          return;
+        }
+      }
+      if (spr || reveal) return;
       const letter = event.key.toUpperCase();
       if (LETTERS.includes(letter) && question.choices?.[letter] != null) {
         event.preventDefault();
@@ -360,7 +418,25 @@ export default function MockExam({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [stage, question, spr, onSelect]);
+  }, [stage, question, spr, reveal, onSelect, keyboardNav, canNext, showBack, onNext, onBack]);
+
+  const menuItems = [
+    ...(moreItems || []),
+    { key: "help", icon: <HelpIcon />, label: "Help", onClick: () => setModal("help") },
+    { key: "shortcuts", icon: <KeyboardIcon />, label: "Shortcuts", onClick: () => setModal("shortcuts") },
+    {
+      key: "reader",
+      icon: <LineReaderIcon />,
+      label: lineReader ? "Hide Line Reader" : "Line Reader",
+      onClick: () => setLineReader((v) => !v),
+    },
+    ...(!moreItems
+      ? [{ key: "break", icon: <BreakIcon />, label: "Unscheduled Break", onClick: () => setModal("break") }]
+      : []),
+    ...(onExit
+      ? [{ key: "exit", icon: <WarningIcon />, label: "Exit the Exam", onClick: () => setModal("exit") }]
+      : []),
+  ];
 
   function closeDirections() {
     setDirectionsOpen(false);
@@ -386,7 +462,7 @@ export default function MockExam({
           <div className="mk-timer mk-timer-hidden" aria-label="Timer hidden" />
         ) : (
           <div className="mk-timer" data-low={lowTime} role="timer" aria-live="off">
-            {formatClock(remainingMs)}
+            {timeLabel ?? formatClock(remainingMs)}
           </div>
         )}
         {!lowTime ? (
@@ -442,21 +518,21 @@ export default function MockExam({
             <>
               <div className="mk-click-away" onClick={() => setMoreOpen(false)} />
               <div className="mk-more-menu" role="menu">
-                <button type="button" role="menuitem" onClick={() => { setModal("help"); setMoreOpen(false); }}>
-                  <HelpIcon /> Help
-                </button>
-                <button type="button" role="menuitem" onClick={() => { setModal("shortcuts"); setMoreOpen(false); }}>
-                  <KeyboardIcon /> Shortcuts
-                </button>
-                <button type="button" role="menuitem" onClick={() => { setLineReader((v) => !v); setMoreOpen(false); }}>
-                  <LineReaderIcon /> Line Reader
-                </button>
-                <button type="button" role="menuitem" onClick={() => { setModal("break"); setMoreOpen(false); }}>
-                  <BreakIcon /> Unscheduled Break
-                </button>
-                <button type="button" role="menuitem" onClick={() => { setModal("exit"); setMoreOpen(false); }}>
-                  <WarningIcon /> Exit the Exam
-                </button>
+                {menuItems.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      item.onClick();
+                    }}
+                  >
+                    {item.icon}
+                    <span className="mk-more-label">{item.label}</span>
+                    {item.trailing ? <span className="mk-more-trailing">{item.trailing}</span> : null}
+                  </button>
+                ))}
               </div>
             </>
           ) : null}
@@ -491,13 +567,16 @@ export default function MockExam({
     }
     // Every passage in the module stays mounted so highlights survive
     // navigating away and back, as they do in Bluebook.
-    return questions.map((q, i) => (
-      <div key={q.id} className="mk-pane-inner" hidden={i !== qIndex}>
-        <Highlighter className="mk-passage">
-          <QuestionContent question={q} />
-        </Highlighter>
-      </div>
-    ));
+    // Endless practice keeps a bounded window mounted.
+    return questions.map((q, i) =>
+      i < qIndex - 30 || i > qIndex + 1 ? null : (
+        <div key={q.id} className="mk-pane-inner" hidden={i !== qIndex}>
+          <Highlighter className="mk-passage">
+            <QuestionContent question={q} />
+          </Highlighter>
+        </div>
+      )
+    );
   };
 
   const block = question ? (
@@ -511,6 +590,7 @@ export default function MockExam({
       onCross={onCross}
       onMark={onMark}
       showStimulus={isMath}
+      reveal={reveal}
     />
   ) : null;
 
@@ -576,12 +656,17 @@ export default function MockExam({
     <div className="mk-shell">
       {header}
       <div className="mk-rule" />
+      {banner ? <div className="mk-banner">{banner}</div> : null}
       {body}
       <div className="mk-rule" />
 
       <footer className="mk-footer">
         <div className="mk-footer-name">{username}</div>
-        {stage === "question" ? (
+        {stage === "question" && !navigator ? (
+          <div className="mk-footer-center">
+            <span className="mk-nav-pill mk-nav-pill-static">Question {qIndex + 1}</span>
+          </div>
+        ) : stage === "question" ? (
           <div className="mk-footer-center">
             <button
               type="button"
@@ -614,13 +699,13 @@ export default function MockExam({
           <div className="mk-footer-center" />
         )}
         <div className="mk-footer-actions">
-          {stage === "review" || qIndex > 0 ? (
+          {showBack ? (
             <button type="button" className="mk-btn-blue" onClick={onBack}>
               Back
             </button>
           ) : null}
-          <button type="button" className="mk-btn-blue" onClick={onNext}>
-            Next
+          <button type="button" className="mk-btn-blue" disabled={!canNext} onClick={onNext}>
+            {nextLabel}
           </button>
         </div>
       </footer>
@@ -652,16 +737,25 @@ export default function MockExam({
       {modal === "help" ? (
         <Modal title="Help" onClose={() => setModal(null)}>
           <ul className="mk-help-list">
-            <li><strong>Timer:</strong> Hide or show the countdown. It always shows in the last 5 minutes.</li>
-            <li><strong>Mark for Review:</strong> Flag a question to come back to. Flags appear in the navigator.</li>
+            {remainingMs != null ? (
+              <li><strong>Timer:</strong> Hide or show the countdown. It always shows in the last 5 minutes.</li>
+            ) : (
+              <li><strong>Timer:</strong> Shows how long you have spent on this question. Hide it if it distracts you.</li>
+            )}
+            <li><strong>Mark for Review:</strong> Flag a question to come back to.{navigator ? " Flags appear in the navigator." : ""}</li>
             <li><strong>Answer eliminator:</strong> Turn on the ABC tool to cross out choices you think are wrong.</li>
-            <li><strong>Question navigator:</strong> Open “Question X of Y” to jump to any question or the review page.</li>
+            {navigator ? (
+              <li><strong>Question navigator:</strong> Open “Question X of Y” to jump to any question or the review page.</li>
+            ) : null}
+            {reveal || !navigator ? (
+              <li><strong>Instant checking:</strong> Choosing an answer locks it in and shows the explanation.</li>
+            ) : null}
             {isMath ? (
               <li><strong>Calculator and Reference:</strong> Open the Desmos calculator or the formula sheet. Both can be moved and resized.</li>
             ) : (
               <li><strong>Highlights &amp; Notes:</strong> Select text to highlight it and attach notes.</li>
             )}
-            <li><strong>Exit the Exam:</strong> Your answers and remaining time are saved on this device, and you can resume later.</li>
+            {onExit ? <li><strong>Exit the Exam:</strong> {exitMessage}</li> : null}
           </ul>
         </Modal>
       ) : null}
@@ -670,6 +764,12 @@ export default function MockExam({
           <table className="mk-shortcuts">
             <tbody>
               <tr><td>A, B, C, D</td><td>Select an answer choice</td></tr>
+              {keyboardNav ? (
+                <>
+                  <tr><td>Enter or →</td><td>Next question</td></tr>
+                  <tr><td>←</td><td>Previous question</td></tr>
+                </>
+              ) : null}
               <tr><td>Esc</td><td>Close the navigator, menus, or line reader</td></tr>
             </tbody>
           </table>
@@ -698,10 +798,7 @@ export default function MockExam({
             </>
           }
         >
-          <p>
-            Your answers and the time left in this module are saved on this device. You can
-            resume this practice test from the mock test page.
-          </p>
+          <p>{exitMessage}</p>
         </Modal>
       ) : null}
     </div>

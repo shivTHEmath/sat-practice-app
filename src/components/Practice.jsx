@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import BluebookExam from "./BluebookExam";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import MockExam from "./mock/MockExam";
+import { ChartIcon, ClockIcon, ExitIcon, ListIcon, TestIcon, ThemeIcon } from "./mock/icons";
 import FilterBar from "./FilterBar";
 import MissedQuestions from "./MissedQuestions";
 import Review from "./Review";
@@ -15,7 +16,7 @@ import {
   loadPracticeHistory,
   saveAttempts,
 } from "@/lib/exam";
-import { clock, seconds } from "@/lib/format";
+import { seconds } from "@/lib/format";
 
 const BATCH = 15;
 const FULL_RANGE = [1, DIFFICULTIES.length];
@@ -51,6 +52,8 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
   const [reviewQuestion, setReviewQuestion] = useState(null);
   const [history, setHistory] = useState({ missed: [], loading: Boolean(user.id), error: null });
   const [tick, setTick] = useState(0);
+  // Timed tests end on Bluebook's Check Your Work page before the review.
+  const [stage, setStage] = useState("question");
 
   const enteredAt = useRef(Date.now());
   const startedAt = useRef(Date.now());
@@ -96,6 +99,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
           setQuestions(set);
           setStates(set.map(blank));
           setIndex(0);
+          setStage("question");
           logged.current = new Set();
           sessionId.current = null;
           startedAt.current = Date.now();
@@ -189,8 +193,9 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
     if (finished.current) return;
     finished.current = true;
     const now = Date.now();
+    // Time spent on the review page belongs to no question.
     const answers = states.map((s, i) =>
-      i === index ? { ...s, ms: s.ms + (now - enteredAt.current) } : s
+      i === index && stage === "question" ? { ...s, ms: s.ms + (now - enteredAt.current) } : s
     );
     setResult({ answers, questions, totalMs: now - startedAt.current });
 
@@ -217,7 +222,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
         })
         .catch(() => {});
     }
-  }, [states, index, questions, user.id]);
+  }, [states, index, questions, user.id, stage]);
 
   useEffect(() => {
     if (limitMs && sessionElapsed >= limitMs) finish();
@@ -273,15 +278,20 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
 
   function choose(letter) {
     const currentState = states[index];
-    if (!currentState || currentState.crossed.includes(letter)) return;
+    if (!currentState) return;
     if (instantCheck && currentState.checked) return;
     setStates((prev) => {
       const next = [...prev];
       const cur = next[index];
-      if (cur.crossed.includes(letter)) return prev;
       // Practice answers lock and reveal at once; a test stays changeable.
       if (instantCheck && cur.checked) return prev;
-      next[index] = { ...cur, selected: letter, checked: instantCheck || cur.checked };
+      // Choosing a crossed-out option restores it, as in Bluebook.
+      next[index] = {
+        ...cur,
+        selected: letter,
+        crossed: cur.crossed.filter((l) => l !== letter),
+        checked: instantCheck || cur.checked,
+      };
       return next;
     });
     if (instantCheck) {
@@ -350,7 +360,31 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
     ].join(" · ");
   }
 
+  function openReviewPage() {
+    flushInto(index);
+    setStage("review");
+  }
+
+  function leaveReviewTo(to) {
+    enteredAt.current = Date.now();
+    setStage("question");
+    setIndex(to);
+  }
+
+  function handleNext() {
+    if (reviewQuestion) return backToPractice();
+    if (test && stage === "review") return finish();
+    if (test && index >= questions.length - 1) return openReviewPage();
+    go(index + 1);
+  }
+
+  function handleBack() {
+    if (stage === "review") return leaveReviewTo(questions.length - 1);
+    go(index - 1);
+  }
+
   function startTest(preset) {
+    setStage("question");
     setTest(preset);
     setReviewQuestion(null);
     setPanel(null);
@@ -361,6 +395,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
   }
 
   function backToPractice() {
+    setStage("question");
     setTest(null);
     setReviewQuestion(null);
     setPanel(null);
@@ -371,6 +406,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
   }
 
   function openReviewQuestion(question, pushHistory = true) {
+    setStage("question");
     setTest(null);
     setReviewQuestion(question);
     setPanel(null);
@@ -397,56 +433,61 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
     window.history.replaceState(null, "", url);
   }, [visibleQuestion?.id, test]);
 
+  // The shared Bluebook frame reads answers by question id.
+  const answersById = useMemo(
+    () => Object.fromEntries(questions.map((q, i) => [q.id, states[i] || blank()])),
+    [questions, states]
+  );
+
   if (result) {
     return (
-      <Review
-        questions={result.questions}
-        answers={result.answers}
-        totalMs={result.totalMs}
-        onDone={backToPractice}
-      />
+      <div className="mk-root practice-review">
+        <Review
+          questions={result.questions}
+          answers={result.answers}
+          totalMs={result.totalMs}
+          onDone={backToPractice}
+        />
+      </div>
     );
   }
 
   const current = visibleQuestion;
   const answer = states[index] || blank();
   const onThisQuestion = answer.ms + (Date.now() - enteredAt.current);
-
   const instantCheck = !test;
-  const toolbar = (
-    <div className="header-actions">
-      <button
-        onClick={() => setPanel(panel === "menu" ? null : "menu")}
-        className="header-tool icon-only"
-        aria-label="More options"
-        aria-expanded={panel === "menu"}
-      >
-        <span aria-hidden="true">•••</span>
-      </button>
-    </div>
-  );
+
+  const moreItems = [
+    ...(test
+      ? []
+      : [
+          { key: "test", icon: <ClockIcon />, label: "Take a timed practice test", onClick: () => setPanel("test") },
+          { key: "mock", icon: <TestIcon />, label: "Take a full PSAT mock test", onClick: () => window.location.assign("/mock") },
+          ...(user.id
+            ? [
+                {
+                  key: "missed",
+                  icon: <ListIcon />,
+                  label: "Review missed questions",
+                  trailing: history.missed.length || null,
+                  onClick: () => setPanel("missed"),
+                },
+                { key: "stats", icon: <ChartIcon />, label: "View performance", onClick: () => setPanel("stats") },
+              ]
+            : []),
+        ]),
+    {
+      key: "theme",
+      icon: <ThemeIcon />,
+      label: theme === "dark" ? "Use light mode" : "Use dark mode",
+      onClick: onToggleTheme,
+    },
+    ...(test ? [] : [{ key: "signout", icon: <ExitIcon />, label: "Exit practice", onClick: onSignOut }]),
+  ];
 
   let secondaryPanel = null;
   if (panel === "stats") {
     secondaryPanel = <Stats userId={user.id} onClose={() => setPanel(null)} />;
-  } else if (panel === "menu") {
-    secondaryPanel = (
-      <div className="quick-menu" role="menu">
-        {test ? (
-          <button type="button" onClick={backToPractice}>Return to endless practice <span>›</span></button>
-        ) : (
-          <button type="button" onClick={() => setPanel("test")}>Take a timed practice test <span>›</span></button>
-        )}
-        {!test ? <button type="button" onClick={() => window.location.assign("/mock")}>Take a full PSAT mock test <span>›</span></button> : null}
-        {user.id && !test ? <button type="button" onClick={() => setPanel("missed")}>Review missed questions <span>{history.missed.length || ""} ›</span></button> : null}
-        {user.id && !test ? <button type="button" onClick={() => setPanel("stats")}>View performance <span>›</span></button> : null}
-        <button type="button" onClick={onToggleTheme} aria-pressed={theme === "dark"}>
-          {theme === "dark" ? "Use light mode" : "Use dark mode"}
-          <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
-        </button>
-        <button type="button" onClick={onSignOut}>Exit practice <span>›</span></button>
-      </div>
-    );
   } else if (panel === "test") {
     secondaryPanel = (
       <div className="test-picker">
@@ -478,48 +519,41 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
     );
   }
 
+  const title = reviewQuestion
+    ? "Review problem"
+    : test
+      ? `${test.label}: Reading and Writing`
+      : filters.assessment === "Both"
+        ? "SAT + PSAT Practice"
+        : `${filters.assessment} Practice`;
+
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1">
-        {!questions.length ? (
-          <div className="loading-state">
-            <span className="loading-spinner" aria-hidden="true" />
-            <span>{error || "Loading questions…"}</span>
-          </div>
-        ) : (
-        <BluebookExam
+    <div className="mk-root">
+      {!questions.length ? (
+        <div className="loading-state">
+          <span className="loading-spinner" aria-hidden="true" />
+          <span>{error || "Loading questions…"}</span>
+        </div>
+      ) : (
+        <MockExam
+          key={test ? `test-${test.key}` : "practice"}
+          title={title}
+          isMath={current.test === "Math"}
+          questions={questions}
+          qIndex={index}
+          stage={stage}
+          answers={answersById}
           username={user.username}
-          moduleLabel={
-            reviewQuestion
-              ? "Review problem"
-              : test
-                ? `${test.label}: Reading and Writing`
-                : filters.assessment === "Both"
-                  ? "SAT + PSAT Practice"
-                  : `${filters.assessment} Practice`
-          }
-          timeLabel={
-            limitMs ? clock(Math.max(0, limitMs - sessionElapsed)) : seconds(onThisQuestion)
-          }
-          question={current}
-          qNumber={index + 1}
-          total={test ? questions.length : null}
-          answer={answer}
-          instantCheck={instantCheck}
-          states={states}
-          onChoose={choose}
-          onToggleCross={toggleCross}
-          onToggleMark={toggleMark}
-          onBack={() => go(index - 1)}
-          onNext={reviewQuestion ? backToPractice : () => go(index + 1)}
-          onJump={go}
-          onFinish={test ? finish : undefined}
-          examTools={Boolean(test)}
-          canBack={index > 0}
-          canNext={reviewQuestion ? true : index < questions.length - 1}
-          primaryLabel={reviewQuestion ? "Back to practice" : "Next"}
-          toolbar={toolbar}
-          filters={
+          remainingMs={limitMs ? Math.max(0, limitMs - sessionElapsed) : null}
+          timeLabel={limitMs ? undefined : seconds(onThisQuestion)}
+          reveal={instantCheck && answer.checked}
+          navigator={Boolean(test)}
+          canBack={test ? undefined : false}
+          canNext={reviewQuestion || test ? true : index < questions.length - 1}
+          nextLabel={reviewQuestion ? "Back to practice" : "Next"}
+          keyboardNav
+          moreItems={moreItems}
+          banner={
             <>
               {!test && !reviewQuestion ? (
                 <FilterBar
@@ -536,9 +570,17 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
               {secondaryPanel}
             </>
           }
+          onSelect={choose}
+          onCross={toggleCross}
+          onMark={toggleMark}
+          onGo={(i) => (stage === "review" ? leaveReviewTo(i) : go(i))}
+          onReview={openReviewPage}
+          onBack={handleBack}
+          onNext={handleNext}
+          onExit={test ? backToPractice : undefined}
+          exitMessage="Leaving ends this practice test. Your answers in it won’t be saved."
         />
-        )}
-      </div>
+      )}
     </div>
   );
 }
