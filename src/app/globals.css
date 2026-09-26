@@ -608,6 +608,22 @@ input:focus-visible {
   white-space: nowrap;
 }
 
+/* Source MathML is rendered by MathJax; legacy disclosed questions may retain
+   an official equation or diagram image when no semantic MathML exists. */
+.rich-text math,
+.rich-text mjx-container {
+  max-width: 100%;
+}
+
+.rich-text img.math-img,
+.rich-text img[role="math"],
+.rich-text figure.image img {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
 .inline-rich-text {
   display: inline;
 }
