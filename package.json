@@ -9,7 +9,8 @@
     "audit": "node scripts/audit-bank.mjs",
     "fix-content": "node scripts/apply-content-fixes.mjs",
     "start": "next start",
-    "seed": "node scripts/seed.mjs"
+    "seed": "node scripts/seed.mjs",
+    "seed-mocks": "node scripts/seed-mocks.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
