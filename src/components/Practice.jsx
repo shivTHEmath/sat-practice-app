@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MockExam from "./mock/MockExam";
-import { ChartIcon, ClockIcon, ExitIcon, FilterIcon, ListIcon, TestIcon, ThemeIcon } from "./mock/icons";
+import {
+  ChartIcon,
+  ClockIcon,
+  ExitIcon,
+  FilterIcon,
+  FullscreenIcon,
+  ListIcon,
+  TestIcon,
+  ThemeIcon,
+} from "./mock/icons";
 import FilterBar from "./FilterBar";
 import MissedQuestions from "./MissedQuestions";
 import Review from "./Review";
@@ -17,6 +26,7 @@ import {
   saveAttempts,
 } from "@/lib/exam";
 import { seconds } from "@/lib/format";
+import { enterFullscreen, exitFullscreen, fullscreenSupported, isFullscreen } from "@/lib/mock";
 
 const BATCH = 15;
 const FILTERS_HIDDEN_KEY = "sat-practice-filters-hidden";
@@ -56,6 +66,17 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
   // Timed tests end on Bluebook's Check Your Work page before the review.
   const [stage, setStage] = useState("question");
   const [filtersHidden, setFiltersHidden] = useState(false);
+  // Optional full screen for practice; unlike a locked mock, nothing is logged.
+  const [fullscreen, setFullscreen] = useState(false);
+  const [canFullscreen, setCanFullscreen] = useState(false);
+
+  useEffect(() => {
+    setCanFullscreen(fullscreenSupported());
+    const sync = () => setFullscreen(isFullscreen());
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
 
   useEffect(() => {
     try {
@@ -508,6 +529,16 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
               ]
             : []),
         ]),
+    ...(canFullscreen
+      ? [
+          {
+            key: "fullscreen",
+            icon: <FullscreenIcon exit={fullscreen} />,
+            label: fullscreen ? "Exit full screen" : "Full screen",
+            onClick: () => (fullscreen ? exitFullscreen() : enterFullscreen()),
+          },
+        ]
+      : []),
     {
       key: "theme",
       icon: <ThemeIcon />,
