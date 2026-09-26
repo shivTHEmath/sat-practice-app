@@ -43,6 +43,14 @@ go. Everything else is secondary and lives in the toolbar.
   deliberately harder than Bluebook, which the page says up front. Mocks are
   assembled by `scripts/pick-mocks.mjs` (no question appears in two mocks) and
   loaded with `npm run seed-mocks`.
+- **Locked mode** (mocks, on by default at the start screen): the test runs in
+  full screen. Leaving full screen or switching tabs or apps hides the test
+  behind a "Return to Your Test" screen while the clock keeps running, and each
+  exit is listed with its time on the score report. Pausing (Exit the Exam)
+  saves the sitting and releases the browser; resuming returns to full screen.
+  A web page can't block other apps the way the Bluebook app does, so this
+  hides and records rather than prevents. If a browser refuses full screen,
+  the sitting continues with exits still recorded.
 - **Stats**: one line by default, "X / Y correct" plus the average time per
   question. An `advanced` link expands accuracy and average time broken down by
   subject and by difficulty. Practice answers are recorded as soon as an answer

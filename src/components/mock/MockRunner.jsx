@@ -2,9 +2,64 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MockExam from "./MockExam";
-import { BREAK_MS, formatClock, moduleTitle, saveProgress } from "@/lib/mock";
+import {
+  BREAK_MS,
+  enterFullscreen,
+  exitFullscreen,
+  formatClock,
+  fullscreenSupported,
+  isFullscreen,
+  moduleTitle,
+  saveProgress,
+} from "@/lib/mock";
 
 const MODULE_OVER_MS = 2500;
+// One departure can fire blur, visibility, and full-screen events together.
+const LOCK_EVENT_MERGE_MS = 2000;
+const LOCKED_STAGES = ["question", "review", "over", "break"];
+
+function LockOverlay({ exits, canFullscreen, refused, onReturn, onContinue, onPause }) {
+  return (
+    <div className="mk-lock" role="alertdialog" aria-modal="true" aria-labelledby="mk-lock-title">
+      <div className="mk-lock-card">
+        <h2 id="mk-lock-title">Return to Your Test</h2>
+        <p>
+          Locked mode is on, so the test stays hidden while you’re outside full screen. The
+          clock is still running.
+        </p>
+        {exits ? (
+          <p className="mk-lock-count">
+            You’ve left the test {exits} {exits === 1 ? "time" : "times"}. Each one is listed on
+            your score report.
+          </p>
+        ) : null}
+        {refused ? (
+          <p className="mk-lock-count">
+            Your browser didn’t allow full screen. You can continue without it; leaving this tab
+            is still recorded.
+          </p>
+        ) : null}
+        <div className="mk-lock-actions">
+          {refused ? (
+            <button type="button" className="mk-btn-yellow mk-btn-lg" onClick={onContinue}>
+              Continue Without Full Screen
+            </button>
+          ) : canFullscreen ? (
+            <button type="button" className="mk-btn-yellow mk-btn-lg" onClick={onReturn}>
+              Return to Full Screen
+            </button>
+          ) : null}
+          <button type="button" className="mk-btn-link" onClick={onPause}>
+            Pause and exit
+          </button>
+        </div>
+        <p className="mk-lock-note">
+          Pausing saves your answers and the time left, and unlocks your browser until you resume.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function ModuleOver() {
   return (
@@ -18,7 +73,7 @@ function ModuleOver() {
   );
 }
 
-function BreakScreen({ remainingMs, username, onResume }) {
+function BreakScreen({ remainingMs, username, onResume, onPause }) {
   return (
     <div className="mk-break">
       <div className="mk-break-main">
@@ -55,7 +110,14 @@ function BreakScreen({ remainingMs, username, onResume }) {
           </ol>
         </div>
       </div>
-      <div className="mk-break-footer">{username}</div>
+      <div className="mk-break-footer">
+        <span>{username}</span>
+        {onPause ? (
+          <button type="button" className="mk-btn-link mk-break-pause" onClick={onPause}>
+            Pause and exit
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -240,6 +302,84 @@ export default function MockRunner({ user, mock, questionsById, initial, onExit,
   const showDirections =
     sectionStart && !(progress.directionsSeen || []).includes(directionsKey);
 
+  // ---------- Locked mode ----------
+  const lockActive = Boolean(progress.locked) && LOCKED_STAGES.includes(progress.stage);
+  // A browser can refuse full screen (an embedded view, a policy, or a
+  // denied permission); the sitting then continues with logging only.
+  const [fullscreenRefused, setFullscreenRefused] = useState(false);
+  const [withoutFullscreen, setWithoutFullscreen] = useState(false);
+  const canFullscreen = fullscreenSupported() && !withoutFullscreen;
+  const [away, setAway] = useState(false);
+  const pausing = useRef(false);
+
+  const recordExit = useCallback(
+    (type) => {
+      if (pausing.current) return;
+      const now = Date.now();
+      setProgress((p) => {
+        const events = p.lockEvents || [];
+        const last = events[events.length - 1];
+        if (last && now - Date.parse(last.at) < LOCK_EVENT_MERGE_MS) {
+          const types = [...new Set([...last.types, type])];
+          return { ...p, lockEvents: [...events.slice(0, -1), { ...last, types }] };
+        }
+        const where =
+          p.stage === "break"
+            ? "Break"
+            : `${moduleTitle(mock.modules[p.moduleIndex])}, Question ${p.qIndex + 1}`;
+        return { ...p, lockEvents: [...events, { at: new Date(now).toISOString(), types: [type], where }] };
+      });
+    },
+    [mock.modules]
+  );
+
+  useEffect(() => {
+    if (!lockActive) {
+      setAway(false);
+      return;
+    }
+    // Without the Fullscreen API (for example iPhone Safari), departures are
+    // still logged, but there is nothing to return to.
+    setAway(canFullscreen && !isFullscreen());
+
+    const onFullscreen = () => {
+      const inside = isFullscreen();
+      if (canFullscreen) setAway(!inside);
+      if (!inside) recordExit("left full screen");
+    };
+    const onVisibility = () => {
+      if (document.hidden) recordExit("switched tabs or apps");
+    };
+    let blurTimer;
+    const onBlur = () => {
+      clearTimeout(blurTimer);
+      blurTimer = setTimeout(() => {
+        if (!document.hasFocus()) recordExit("switched windows");
+      }, 250);
+    };
+    document.addEventListener("fullscreenchange", onFullscreen);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      clearTimeout(blurTimer);
+      document.removeEventListener("fullscreenchange", onFullscreen);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [lockActive, canFullscreen, recordExit]);
+
+  // The lock ends with the test.
+  useEffect(() => {
+    if (progress.locked && progress.stage === "finished") exitFullscreen();
+  }, [progress.locked, progress.stage]);
+
+  /** Pausing is always allowed: save, release full screen, and leave. */
+  const pause = useCallback(() => {
+    pausing.current = true;
+    saveProgress(user, mock.id, progress);
+    exitFullscreen().finally(onExit);
+  }, [user, mock.id, progress, onExit]);
+
   async function finish() {
     setSaving(true);
     setSaveError(null);
@@ -251,60 +391,90 @@ export default function MockRunner({ user, mock, questionsById, initial, onExit,
     }
   }
 
-  if (progress.stage === "over") return <ModuleOver />;
-  if (progress.stage === "break") {
-    return (
+  let screen;
+  if (progress.stage === "over") {
+    screen = <ModuleOver />;
+  } else if (progress.stage === "break") {
+    screen = (
       <BreakScreen
         remainingMs={progress.breakRemainingMs}
         username={user.username}
         onResume={() => setProgress((p) => ({ ...p, stage: "question" }))}
+        onPause={progress.locked ? pause : undefined}
       />
     );
-  }
-  if (progress.stage === "finished") {
-    return (
+  } else if (progress.stage === "finished") {
+    screen = (
       <FinishedScreen mockName={mock.name} saving={saving} error={saveError} onView={finish} />
+    );
+  } else {
+    screen = (
+      <MockExam
+        key={progress.moduleIndex}
+        title={title}
+        isMath={isMath}
+        questions={questions}
+        qIndex={progress.qIndex}
+        stage={progress.stage}
+        answers={progress.answers}
+        remainingMs={progress.remainingMs}
+        username={user.username}
+        openDirections={showDirections}
+        onDirectionsClosed={() =>
+          setProgress((p) => ({
+            ...p,
+            directionsSeen: [...new Set([...(p.directionsSeen || []), directionsKey])],
+          }))
+        }
+        onSelect={handleSelect}
+        onCross={handleCross}
+        onMark={handleMark}
+        onGo={(i) => setProgress((p) => ({ ...p, qIndex: i, stage: "question" }))}
+        onReview={() => setProgress((p) => ({ ...p, stage: "review" }))}
+        onBack={() =>
+          setProgress((p) =>
+            p.stage === "review"
+              ? { ...p, stage: "question", qIndex: questions.length - 1 }
+              : { ...p, qIndex: Math.max(0, p.qIndex - 1) }
+          )
+        }
+        onNext={() =>
+          setProgress((p) => {
+            if (p.stage === "review") return { ...p, stage: "over" };
+            if (p.qIndex >= questions.length - 1) return { ...p, stage: "review" };
+            return { ...p, qIndex: p.qIndex + 1 };
+          })
+        }
+        onExit={pause}
+        exitMessage={
+          progress.locked
+            ? "Your answers and the time left are saved on this device, and locked mode releases your browser until you resume. Resuming returns you to full screen."
+            : undefined
+        }
+      />
     );
   }
 
   return (
-    <MockExam
-      key={progress.moduleIndex}
-      title={title}
-      isMath={isMath}
-      questions={questions}
-      qIndex={progress.qIndex}
-      stage={progress.stage}
-      answers={progress.answers}
-      remainingMs={progress.remainingMs}
-      username={user.username}
-      openDirections={showDirections}
-      onDirectionsClosed={() =>
-        setProgress((p) => ({
-          ...p,
-          directionsSeen: [...new Set([...(p.directionsSeen || []), directionsKey])],
-        }))
-      }
-      onSelect={handleSelect}
-      onCross={handleCross}
-      onMark={handleMark}
-      onGo={(i) => setProgress((p) => ({ ...p, qIndex: i, stage: "question" }))}
-      onReview={() => setProgress((p) => ({ ...p, stage: "review" }))}
-      onBack={() =>
-        setProgress((p) =>
-          p.stage === "review"
-            ? { ...p, stage: "question", qIndex: questions.length - 1 }
-            : { ...p, qIndex: Math.max(0, p.qIndex - 1) }
-        )
-      }
-      onNext={() =>
-        setProgress((p) => {
-          if (p.stage === "review") return { ...p, stage: "over" };
-          if (p.qIndex >= questions.length - 1) return { ...p, stage: "review" };
-          return { ...p, qIndex: p.qIndex + 1 };
-        })
-      }
-      onExit={onExit}
-    />
+    <>
+      {screen}
+      {lockActive && away ? (
+        <LockOverlay
+          exits={(progress.lockEvents || []).length}
+          canFullscreen={canFullscreen}
+          refused={fullscreenRefused}
+          onReturn={() =>
+            enterFullscreen().then((ok) => {
+              if (!ok) setFullscreenRefused(true);
+            })
+          }
+          onContinue={() => {
+            setWithoutFullscreen(true);
+            setFullscreenRefused(false);
+          }}
+          onPause={pause}
+        />
+      ) : null}
+    </>
   );
 }

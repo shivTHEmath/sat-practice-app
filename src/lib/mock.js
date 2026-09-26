@@ -197,7 +197,15 @@ export function scoreMock(mock, questionsById, answers) {
 }
 
 /** Record every answer in the practice log and store the score report. */
-export async function saveMockResult({ user, mock, sessionId, questionsById, answers }) {
+export async function saveMockResult({
+  user,
+  mock,
+  sessionId,
+  questionsById,
+  answers,
+  locked = false,
+  lockEvents = [],
+}) {
   const score = scoreMock(mock, questionsById, answers);
   if (!user?.id) return score;
 
@@ -226,6 +234,8 @@ export async function saveMockResult({ user, mock, sessionId, questionsById, ans
       math_score: score.math.score,
       total_score: score.total,
       answers,
+      locked,
+      lock_events: lockEvents,
     },
     { onConflict: "session_id" }
   );
@@ -267,8 +277,10 @@ export function clearProgress(user, mockId) {
   }
 }
 
-export function newProgress(mock) {
+export function newProgress(mock, { locked = false } = {}) {
   return {
+    locked,
+    lockEvents: [],
     sessionId: crypto.randomUUID(),
     moduleIndex: 0,
     qIndex: 0,
@@ -286,4 +298,35 @@ export function formatClock(ms) {
   const minutes = Math.floor(total / 60);
   const seconds = String(total % 60).padStart(2, "0");
   return `${minutes}:${seconds}`;
+}
+
+/*
+ * Locked mode keeps a sitting in full screen. Browsers only allow entering
+ * full screen from a click or key press, so callers invoke this directly
+ * inside their event handlers.
+ */
+export function fullscreenSupported() {
+  return typeof document !== "undefined" && Boolean(document.documentElement.requestFullscreen);
+}
+
+export function isFullscreen() {
+  return typeof document !== "undefined" && Boolean(document.fullscreenElement);
+}
+
+/** Resolves true once in full screen, false if the browser refused. */
+export function enterFullscreen() {
+  if (!fullscreenSupported()) return Promise.resolve(false);
+  if (isFullscreen()) return Promise.resolve(true);
+  const request = document.documentElement
+    .requestFullscreen({ navigationUI: "hide" })
+    .then(() => true)
+    .catch(() => false);
+  // Some embedded browsers never settle the request; treat silence as refusal.
+  const timeout = new Promise((resolve) => setTimeout(() => resolve(isFullscreen()), 1500));
+  return Promise.race([request, timeout]);
+}
+
+export function exitFullscreen() {
+  if (!isFullscreen()) return Promise.resolve();
+  return document.exitFullscreen().catch(() => {});
 }
