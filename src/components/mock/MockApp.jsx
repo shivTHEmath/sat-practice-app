@@ -15,6 +15,7 @@ import {
   loadMockResults,
   loadMocks,
   loadProgress,
+  mockAsTaken,
   moduleTitle,
   newProgress,
   saveMockResult,
@@ -294,9 +295,10 @@ export default function MockApp() {
     }
   }
 
-  function start(mock, progress) {
+  function start(baseMock, progress) {
     // Full screen must be requested inside the click that starts the test.
     if (progress.locked) enterFullscreen();
+    const mock = mockAsTaken(baseMock, progress.modules);
     open(mock, (questionsById) => setView({ name: "test", mock, questionsById, progress }));
   }
 
@@ -374,7 +376,8 @@ export default function MockApp() {
         onStart={(mock) => setPendingStart(mock)}
         onResume={(mock, progress) => start(mock, progress)}
         onRestart={restart}
-        onViewResult={(mock, result) =>
+        onViewResult={(baseMock, result) => {
+          const mock = mockAsTaken(baseMock, result.modules);
           open(mock, (questionsById) =>
             setView({
               name: "results",
@@ -383,8 +386,8 @@ export default function MockApp() {
               answers: result.answers,
               lock: { locked: result.locked, events: result.lock_events || [] },
             })
-          )
-        }
+          );
+        }}
         onSignOut={handleSignOut}
       />
       {pendingStart ? (

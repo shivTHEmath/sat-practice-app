@@ -4,9 +4,14 @@
  * reused, and with --prefer-unseen a user's answered questions are used only
  * when a slot has nothing fresh left.
  *
+ * Math slots use only digital questions, whose math is MathML that MathJax
+ * typesets. Legacy questions carry their equations as small raster images
+ * that clash with the page, so they are a last resort.
+ *
  * Usage:
  *   node scripts/pick-mocks.mjs psat 3
  *   node scripts/pick-mocks.mjs sat 5 --prefer-unseen shivsai
+ *   node scripts/pick-mocks.mjs psat --rebuild-math   (re-pick Math in every existing mock)
  * Then run `npm run seed-mocks`.
  */
 import { createClient } from "@supabase/supabase-js";
@@ -25,11 +30,16 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-const [kind, countArg, ...rest] = process.argv.slice(2);
-const count = Number(countArg);
-const unseenFor = rest[0] === "--prefer-unseen" ? rest[1] : null;
-if (!["psat", "sat"].includes(kind) || !count) {
-  console.error("Usage: node scripts/pick-mocks.mjs <psat|sat> <count> [--prefer-unseen <username>]");
+const [kind, ...args] = process.argv.slice(2);
+const rebuildMath = args.includes("--rebuild-math");
+const count = rebuildMath ? 0 : Number(args[0]);
+const unseenIndex = args.indexOf("--prefer-unseen");
+const unseenFor = unseenIndex >= 0 ? args[unseenIndex + 1] : null;
+if (!["psat", "sat"].includes(kind) || (!count && !rebuildMath)) {
+  console.error(
+    "Usage: node scripts/pick-mocks.mjs <psat|sat> <count> [--prefer-unseen <username>]\n" +
+      "       node scripts/pick-mocks.mjs <psat|sat> --rebuild-math [--prefer-unseen <username>]"
+  );
   process.exit(1);
 }
 const assessment = kind.toUpperCase();
@@ -127,7 +137,7 @@ const bank = (
   await fetchAll(() =>
     supabase
       .from("sat_questions")
-      .select("id, test, domain, skill, difficulty, response_type")
+      .select("id, test, domain, skill, difficulty, response_type, source_kind:source_metadata->>source_kind")
       .eq("assessment", assessment)
       .order("id")
   )
@@ -137,8 +147,13 @@ const outPath = join(here, `${kind}-mocks.json`);
 const existing = existsSync(outPath) ? JSON.parse(readFileSync(outPath, "utf8")) : [];
 const otherPath = join(here, `${kind === "psat" ? "sat" : "psat"}-mocks.json`);
 const other = existsSync(otherPath) ? JSON.parse(readFileSync(otherPath, "utf8")) : [];
+// A Math rebuild releases this file's Math questions back into the pool.
 const used = new Set(
-  [...existing, ...other].flatMap((m) => m.modules.flatMap((mod) => mod.question_ids))
+  [...existing, ...other].flatMap((m) =>
+    m.modules
+      .filter((mod) => !(rebuildMath && existing.includes(m) && mod.section === "Math"))
+      .flatMap((mod) => mod.question_ids)
+  )
 );
 
 let seen = new Set();
@@ -182,6 +197,8 @@ const DIFF = { E: "Easy", M: "Medium", H: "Hard" };
 const FALLBACK = { E: ["E", "M"], M: ["M", "H", "E"], H: ["H", "M"] };
 let reusedSeen = 0;
 const shifted = [];
+const legacyUsed = [];
+const typesets = (q) => q.source_kind !== "legacy";
 
 /** Fresh questions first; a question the user has answered only as a fallback. */
 function take(filter, label) {
@@ -233,23 +250,34 @@ function buildRw(plan) {
 function buildMath(plan) {
   const skillUse = new Map();
   const picked = plan.map(([domain, d, spr]) => {
-    const type = spr ? "student_produced_response" : "multiple_choice";
-    const level = FALLBACK[d].find((option) =>
-      bank.some(
-        (q) =>
-          !used.has(q.id) && q.test === "Math" && q.domain === domain &&
-          q.difficulty === DIFF[option] && q.response_type === type
-      )
-    );
-    if (!level) throw new Error(`Not enough questions for ${domain} ${DIFF[d]} ${type}`);
-    if (level !== d) shifted.push(`${domain} ${type}: ${DIFF[d]} -> ${DIFF[level]}`);
+    const wanted = spr ? "student_produced_response" : "multiple_choice";
+    const otherType = spr ? "multiple_choice" : "student_produced_response";
+    const fits = (q, option, t) =>
+      !used.has(q.id) && q.test === "Math" && q.domain === domain &&
+      q.difficulty === DIFF[option] && q.response_type === t;
+    // Keep the difficulty first (switching answer format if needed), then
+    // borrow the nearest difficulty; legacy image-math only if nothing else remains.
+    const attempts = FALLBACK[d].flatMap((option) => [[option, wanted], [option, otherType]]);
+    let pick = attempts.find(([option, t]) => bank.some((q) => fits(q, option, t) && typesets(q)));
+    let allowLegacy = false;
+    if (!pick) {
+      pick = attempts.find(([option, t]) => bank.some((q) => fits(q, option, t)));
+      allowLegacy = true;
+    }
+    if (!pick) throw new Error(`Not enough questions for ${domain} ${DIFF[d]} ${wanted}`);
+    const [level, type] = pick;
+    if (level !== d || type !== wanted) {
+      shifted.push(`${domain} ${DIFF[d]} ${wanted} -> ${DIFF[level]} ${type}`);
+    }
     const matches = (q) =>
-      q.test === "Math" && q.domain === domain && q.difficulty === DIFF[level] && q.response_type === type;
+      q.test === "Math" && q.domain === domain && q.difficulty === DIFF[level] &&
+      q.response_type === type && (allowLegacy || typesets(q));
     // Spread skills within a domain: prefer the least-used skill in this module.
     const skills = [...new Set(bank.filter((q) => matches(q) && !used.has(q.id)).map((q) => q.skill))];
     const skill = shuffle(skills).sort((a, b) => (skillUse.get(a) || 0) - (skillUse.get(b) || 0))[0];
     const q = take((row) => matches(row) && (!skill || row.skill === skill), `${domain} ${DIFF[d]} ${type}`);
     skillUse.set(q.skill, (skillUse.get(q.skill) || 0) + 1);
+    if (!typesets(q)) legacyUsed.push(`${q.id} (${domain} ${q.difficulty} ${type})`);
     return q;
   });
   const rank = { Easy: 0, Medium: 1, Hard: 2 };
@@ -259,6 +287,25 @@ function buildMath(plan) {
 const blueprint = BLUEPRINTS[assessment];
 const hasMath = bank.some((q) => q.test === "Math");
 if (!hasMath) throw new Error(`The bank has no ${assessment} Math questions yet.`);
+
+if (rebuildMath) {
+  const rebuilt = existing.map((mock) => {
+    let mathIndex = 0;
+    const modules = mock.modules.map((mod) => {
+      if (mod.section !== "Math") return mod;
+      const questions = buildMath(blueprint.math[mathIndex]);
+      mathIndex += 1;
+      return { ...mod, question_ids: questions.map((q) => q.id) };
+    });
+    return { ...mock, modules };
+  });
+  writeFileSync(outPath, `${JSON.stringify(rebuilt, null, 2)}\n`);
+  console.log(`Rebuilt Math in ${rebuilt.length} ${assessment} mocks.`);
+  if (shifted.length) console.log(`Difficulty shifts (${shifted.length}):\n  ${shifted.join("\n  ")}`);
+  console.log(`Legacy (image-math) questions still used: ${legacyUsed.length}${legacyUsed.length ? `\n  ${legacyUsed.join("\n  ")}` : ""}`);
+  console.log(`Wrote ${outPath}`);
+  process.exit(0);
+}
 
 const created = [];
 for (let n = 0; n < count; n += 1) {
@@ -298,5 +345,6 @@ for (const [i, mock] of output.entries()) {
   });
 }
 if (shifted.length) console.log(`\nDifficulty shifts where a pool ran out (${shifted.length}):\n  ${shifted.join("\n  ")}`);
+console.log(`Legacy (image-math) questions used: ${legacyUsed.length}`);
 if (unseenFor) console.log(`\nSlots that had to reuse a question ${unseenFor} already answered: ${reusedSeen}`);
 console.log(`Wrote ${outPath}`);
