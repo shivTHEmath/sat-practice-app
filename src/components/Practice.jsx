@@ -116,8 +116,11 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
           return;
         }
         setError(null);
+        // Each slot gets its own key: a question can repeat once the pool runs out.
+        const withSlots = (list, offset) =>
+          list.map((q, k) => ({ ...q, slotId: `${offset + k}:${q.id}` }));
         if (reset) {
-          setQuestions(set);
+          setQuestions(withSlots(set, 0));
           setStates(set.map(blank));
           setIndex(0);
           setStage("question");
@@ -127,7 +130,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
           enteredAt.current = Date.now();
           finished.current = false;
         } else {
-          setQuestions((prev) => [...prev, ...set]);
+          setQuestions((prev) => [...prev, ...withSlots(set, prev.length)]);
           setStates((prev) => [...prev, ...set.map(blank)]);
         }
       } catch (err) {
@@ -456,7 +459,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
 
   // The shared Bluebook frame reads answers by question id.
   const answersById = useMemo(
-    () => Object.fromEntries(questions.map((q, i) => [q.id, states[i] || blank()])),
+    () => Object.fromEntries(questions.map((q, i) => [q.slotId || q.id, states[i] || blank()])),
     [questions, states]
   );
 
@@ -572,6 +575,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
           timeLabel={limitMs ? undefined : seconds(onThisQuestion)}
           reveal={instantCheck && answer.checked}
           navigator={Boolean(test)}
+          showMark={Boolean(test)}
           canBack={test ? undefined : false}
           canNext={reviewQuestion || test ? true : index < questions.length - 1}
           nextLabel={reviewQuestion ? "Back to practice" : "Next"}
@@ -579,6 +583,21 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
           moreItems={moreItems}
           banner={
             <>
+              {!test && !reviewQuestion && filtersHidden ? (
+                <div className="filter-reveal-wrap">
+                  <button
+                    type="button"
+                    className="filter-reveal"
+                    onClick={toggleFilters}
+                    aria-label="Show filters"
+                  >
+                    Filters
+                    <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">
+                      <path d="M2.5 5 7 9.5 11.5 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              ) : null}
               {!test && !reviewQuestion && !filtersHidden ? (
                 <FilterBar
                   assessment={filters.assessment}

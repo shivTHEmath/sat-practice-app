@@ -45,6 +45,10 @@ const QuestionContent = memo(BaseQuestionContent);
 const RichText = memo(BaseRichText);
 
 const LETTERS = ["A", "B", "C", "D"];
+
+// Endless practice can serve the same question twice once a filter's pool
+// runs out, so answers are keyed by list slot when one is provided.
+const slotKey = (question) => question.slotId || question.id;
 const FIVE_MINUTES = 5 * 60 * 1000;
 
 function SprPreview({ value }) {
@@ -71,6 +75,7 @@ function QuestionBlock({
   onMark,
   showStimulus,
   reveal = false,
+  showMark = true,
 }) {
   const spr = isSpr(question);
   const answered = answer.selected != null && answer.selected !== "";
@@ -79,17 +84,19 @@ function QuestionBlock({
     <div className="mk-question">
       <div className="mk-qbar">
         <span className="mk-qnum">{number}</span>
-        <button
-          type="button"
-          className="mk-mark"
-          aria-pressed={Boolean(answer.marked)}
-          onClick={onMark}
-        >
-          <span className="mk-mark-icon">
-            <BookmarkIcon filled={Boolean(answer.marked)} />
-          </span>
-          Mark for Review
-        </button>
+        {showMark ? (
+          <button
+            type="button"
+            className="mk-mark"
+            aria-pressed={Boolean(answer.marked)}
+            onClick={onMark}
+          >
+            <span className="mk-mark-icon">
+              <BookmarkIcon filled={Boolean(answer.marked)} />
+            </span>
+            Mark for Review
+          </button>
+        ) : null}
         {!spr && !reveal ? (
           <button
             type="button"
@@ -206,11 +213,11 @@ function QuestionGrid({ questions, answers, current, onGo, big = false }) {
   return (
     <div className={big ? "mk-grid mk-grid-big" : "mk-grid"}>
       {questions.map((q, i) => {
-        const a = answers[q.id] || {};
+        const a = answers[slotKey(q)] || {};
         const answered = a.selected != null && a.selected !== "";
         return (
           <button
-            key={q.id}
+            key={slotKey(q)}
             type="button"
             className="mk-grid-cell"
             data-answered={answered}
@@ -324,6 +331,7 @@ export default function MockExam({
   moreItems,
   banner,
   keyboardNav = false,
+  showMark = true,
   exitMessage = "Your answers and the time left in this module are saved on this device. You can resume this practice test from the mock test page.",
 }) {
   const [split, setSplit] = useState(50);
@@ -344,7 +352,7 @@ export default function MockExam({
   const leftRef = useRef(null);
 
   const question = questions[qIndex];
-  const answer = (question && answers[question.id]) || {};
+  const answer = (question && answers[slotKey(question)]) || {};
   const spr = isSpr(question);
   const split2 = !isMath || spr;
   const lowTime = remainingMs != null && remainingMs <= FIVE_MINUTES;
@@ -570,7 +578,7 @@ export default function MockExam({
     // Endless practice keeps a bounded window mounted.
     return questions.map((q, i) =>
       i < qIndex - 30 || i > qIndex + 1 ? null : (
-        <div key={q.id} className="mk-pane-inner" hidden={i !== qIndex}>
+        <div key={slotKey(q)} className="mk-pane-inner" hidden={i !== qIndex}>
           <Highlighter className="mk-passage">
             <QuestionContent question={q} />
           </Highlighter>
@@ -591,6 +599,7 @@ export default function MockExam({
       onMark={onMark}
       showStimulus={isMath}
       reveal={reveal}
+      showMark={showMark}
     />
   ) : null;
 
@@ -636,7 +645,7 @@ export default function MockExam({
         <section ref={rightRef} className="mk-pane mk-pane-right">
           <div className="mk-pane-inner">
             {isMath ? block : (
-              <Highlighter key={question.id}>{block}</Highlighter>
+              <Highlighter key={slotKey(question)}>{block}</Highlighter>
             )}
           </div>
         </section>
@@ -742,7 +751,9 @@ export default function MockExam({
             ) : (
               <li><strong>Timer:</strong> Shows how long you have spent on this question. Hide it if it distracts you.</li>
             )}
-            <li><strong>Mark for Review:</strong> Flag a question to come back to.{navigator ? " Flags appear in the navigator." : ""}</li>
+            {showMark ? (
+              <li><strong>Mark for Review:</strong> Flag a question to come back to.{navigator ? " Flags appear in the navigator." : ""}</li>
+            ) : null}
             <li><strong>Answer eliminator:</strong> Turn on the ABC tool to cross out choices you think are wrong.</li>
             {navigator ? (
               <li><strong>Question navigator:</strong> Open “Question X of Y” to jump to any question or the review page.</li>
