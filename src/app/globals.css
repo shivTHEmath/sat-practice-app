@@ -522,6 +522,44 @@ input:focus-visible {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* When the filter bar is hidden, a small tab hangs under the header rule to
+   bring it back without taking any height from the question. */
+.filter-reveal-wrap {
+  position: relative;
+  height: 0;
+}
+
+.filter-reveal {
+  position: absolute;
+  top: 0;
+  right: 1.25rem;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.75rem 0.3rem;
+  border: 1px solid var(--color-bb-line);
+  border-top: 0;
+  border-radius: 0 0 0.5rem 0.5rem;
+  background: #eef2f9;
+  color: var(--color-bb-ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.filter-reveal:hover {
+  background: #e2e9f5;
+}
+
+[data-theme="dark"] .filter-reveal {
+  background: #1f2633;
+}
+
+[data-theme="dark"] .filter-reveal:hover {
+  background: #2a3342;
+}
+
 .topic-filters {
   display: grid;
   flex: none;
