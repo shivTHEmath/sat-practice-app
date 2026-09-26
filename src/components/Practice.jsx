@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MockExam from "./mock/MockExam";
-import { ChartIcon, ClockIcon, ExitIcon, ListIcon, TestIcon, ThemeIcon } from "./mock/icons";
+import { ChartIcon, ClockIcon, ExitIcon, FilterIcon, ListIcon, TestIcon, ThemeIcon } from "./mock/icons";
 import FilterBar from "./FilterBar";
 import MissedQuestions from "./MissedQuestions";
 import Review from "./Review";
@@ -19,6 +19,7 @@ import {
 import { seconds } from "@/lib/format";
 
 const BATCH = 15;
+const FILTERS_HIDDEN_KEY = "sat-practice-filters-hidden";
 const FULL_RANGE = [1, DIFFICULTIES.length];
 
 /** [1,3] means "no difficulty filter"; anything narrower becomes an IN list. */
@@ -54,6 +55,26 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
   const [tick, setTick] = useState(0);
   // Timed tests end on Bluebook's Check Your Work page before the review.
   const [stage, setStage] = useState("question");
+  const [filtersHidden, setFiltersHidden] = useState(false);
+
+  useEffect(() => {
+    try {
+      setFiltersHidden(localStorage.getItem(FILTERS_HIDDEN_KEY) === "true");
+    } catch {
+      // Blocked storage just means the filters start visible.
+    }
+  }, []);
+
+  function toggleFilters() {
+    setFiltersHidden((hidden) => {
+      try {
+        localStorage.setItem(FILTERS_HIDDEN_KEY, String(!hidden));
+      } catch {
+        // The choice still applies for this visit.
+      }
+      return !hidden;
+    });
+  }
 
   const enteredAt = useRef(Date.now());
   const startedAt = useRef(Date.now());
@@ -463,6 +484,9 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
       : [
           { key: "test", icon: <ClockIcon />, label: "Take a timed practice test", onClick: () => setPanel("test") },
           { key: "mock", icon: <TestIcon />, label: "Take a full-length mock test", onClick: () => window.location.assign("/mock") },
+          ...(!reviewQuestion
+            ? [{ key: "filters", icon: <FilterIcon />, label: filtersHidden ? "Show filters" : "Hide filters", onClick: toggleFilters }]
+            : []),
           ...(user.id
             ? [
                 {
@@ -555,7 +579,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
           moreItems={moreItems}
           banner={
             <>
-              {!test && !reviewQuestion ? (
+              {!test && !reviewQuestion && !filtersHidden ? (
                 <FilterBar
                   assessment={filters.assessment}
                   range={filters.range}
@@ -565,6 +589,7 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
                   onRange={setRange}
                   onDomain={setDomain}
                   onSkill={setSkill}
+                  onHide={toggleFilters}
                 />
               ) : null}
               {secondaryPanel}

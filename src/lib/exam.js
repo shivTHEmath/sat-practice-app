@@ -57,6 +57,8 @@ function shuffle(list) {
 
 let questionBankPromise;
 
+// Practice serves Reading and Writing, so only that part of the bank is
+// cached up front; the Math rows carry large embedded figures.
 async function fetchQuestionBank() {
   const pageSize = 1000;
   const rows = [];
@@ -64,6 +66,7 @@ async function fetchQuestionBank() {
     const { data, error } = await supabase
       .from("sat_questions")
       .select("*")
+      .eq("test", "Reading and Writing")
       .order("id")
       .range(from, from + pageSize - 1);
     if (error) throw error;
@@ -159,9 +162,26 @@ export async function buildSession({
   return weighted ? orderLikeModule(ordered) : ordered;
 }
 
+/** Fetch specific questions outside the cached bank, such as a missed Math question. */
+async function fetchQuestionsByIds(ids) {
+  const rows = [];
+  for (let start = 0; start < ids.length; start += 100) {
+    const { data, error } = await supabase
+      .from("sat_questions")
+      .select("*")
+      .in("id", ids.slice(start, start + 100));
+    if (error) throw error;
+    rows.push(...(data || []));
+  }
+  return rows.map(normalizeQuestion);
+}
+
 export async function getQuestionById(questionId) {
   const bank = await loadQuestionBank();
-  return bank.find((question) => question.id === questionId) || null;
+  const cached = bank.find((question) => question.id === questionId);
+  if (cached) return cached;
+  const [fetched] = await fetchQuestionsByIds([questionId]);
+  return fetched || null;
 }
 
 async function loadAttemptRows(userId) {
@@ -189,6 +209,11 @@ export async function loadPracticeHistory(userId) {
 
   const [attempts, bank] = await Promise.all([loadAttemptRows(userId), loadQuestionBank()]);
   const questionsById = new Map(bank.map((question) => [question.id, question]));
+  // Mock tests also log Math answers; fetch just those questions.
+  const outside = [...new Set(attempts.map((a) => a.question_id))].filter((id) => !questionsById.has(id));
+  if (outside.length) {
+    for (const question of await fetchQuestionsByIds(outside)) questionsById.set(question.id, question);
+  }
   const summaries = new Map();
 
   for (const attempt of attempts) {

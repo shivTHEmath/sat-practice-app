@@ -2,7 +2,7 @@
 
 import { DIFFICULTIES, DOMAINS, SKILLS, SKILLS_BY_DOMAIN } from "@/lib/exam";
 
-export default function FilterBar({ assessment, range, domain, skill, onAssessment, onRange, onDomain, onSkill }) {
+export default function FilterBar({ assessment, range, domain, skill, onAssessment, onRange, onDomain, onSkill, onHide }) {
   const [lo, hi] = range;
   const allDifficulties = lo === 1 && hi === DIFFICULTIES.length;
   const value = allDifficulties ? 0 : lo;
@@ -63,6 +63,20 @@ export default function FilterBar({ assessment, range, domain, skill, onAssessme
           </select>
         </label>
       </div>
+
+      {onHide ? (
+        <button
+          type="button"
+          className="filter-hide"
+          onClick={onHide}
+          aria-label="Hide filters"
+          title="Hide filters (show them again from the More menu)"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+            <path d="M2.5 9.5 7 5l4.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      ) : null}
     </div>
   );
 }
