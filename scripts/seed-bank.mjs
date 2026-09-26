@@ -1,4 +1,4 @@
-/** Upsert a generated Math bank (default scripts/math-bank.json) with a service-role key. */
+/** Upsert a generated question bank file (default scripts/math-bank.json) with a service-role key. */
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -23,4 +23,4 @@ for (let start = 0; start < rows.length; start += size) {
   if (error) throw error;
   console.log(`seeded ${Math.min(start + size, rows.length)}/${rows.length}`);
 }
-console.log("Math bank seeded successfully");
+console.log(`${file} seeded successfully`);

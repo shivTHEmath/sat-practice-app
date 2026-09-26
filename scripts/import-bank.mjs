@@ -1,16 +1,21 @@
 /**
- * Builds a website-ready Math question bank from a College Board PDF export.
+ * Builds a website-ready question bank from a College Board PDF export.
  *
- * The PDF tells us exactly which question IDs the user selected. Metadata and
- * detailed disclosed records supply semantic HTML/MathML, answer choices, and
- * the accepted answers for student-produced responses. It writes a local JSON
- * bank; run `node scripts/seed-math.mjs` afterwards to upsert it to Supabase.
- * The export's Assessment column decides SAT or PSAT: an SAT export writes
- * sat-math-bank.json (seed it with `node scripts/seed-math.mjs sat-math-bank.json`).
+ * The PDF tells us exactly which question IDs were selected; College Board's
+ * question bank API supplies each question's full HTML (MathML, charts as
+ * SVG, underlined spans), answer choices, keys, and rationales. The export's
+ * Assessment and Test columns decide the output file:
+ *
+ *   PSAT Math -> math-bank.json       SAT Math -> sat-math-bank.json
+ *   PSAT R&W  -> psat-rw-bank.json    SAT R&W  -> sat-rw-bank.json
+ *
+ * --skip-existing leaves out questions already in Supabase, so curated rows
+ * are never overwritten. Seed the result with `node scripts/seed-bank.mjs <file>`.
  *
  * Usage:
- *   node scripts/import-math-bank.mjs /path/to/questionbank-export.pdf
+ *   node scripts/import-bank.mjs /path/to/questionbank-export.pdf [--skip-existing]
  */
+import { createClient } from "@supabase/supabase-js";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -18,10 +23,18 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pdfPath = process.argv[2];
+const skipExisting = process.argv.includes("--skip-existing");
 // College Board question bank assessment IDs: 99 is SAT, 100 is PSAT/NMSQT and PSAT 10.
-const ASSESSMENTS = {
-  SAT: { id: 99, output: "sat-math-bank.json" },
-  PSAT: { id: 100, output: "math-bank.json" },
+const ASSESSMENT_IDS = { SAT: 99, PSAT: 100 };
+const TESTS = {
+  Math: { code: 2, domains: "H,P,Q,S" },
+  "Reading and Writing": { code: 1, domains: "INI,CAS,EOI,SEC" },
+};
+const OUTPUTS = {
+  "PSAT Math": "math-bank.json",
+  "SAT Math": "sat-math-bank.json",
+  "PSAT Reading and Writing": "psat-rw-bank.json",
+  "SAT Reading and Writing": "sat-rw-bank.json",
 };
 const metadataUrl = "https://qbank-api.collegeboard.org/msreportingquestionbank-prod/questionbank/digital/get-questions";
 const detailUrl = "https://qbank-api.collegeboard.org/msreportingquestionbank-prod/questionbank/digital/get-question";
@@ -29,7 +42,7 @@ const bulkDetailUrl = "https://qbank-api.collegeboard.org/msreportingquestionban
 const legacyBaseUrl = "https://saic.collegeboard.org/disclosed";
 
 if (!pdfPath) {
-  console.error("Usage: node scripts/import-math-bank.mjs /path/to/questionbank-export.pdf");
+  console.error("Usage: node scripts/import-bank.mjs /path/to/questionbank-export.pdf [--skip-existing]");
   process.exit(1);
 }
 
@@ -155,7 +168,7 @@ function toRow(metadata, payload, source) {
   return {
     id: metadata.questionId,
     assessment,
-    test: "Math",
+    test: testName,
     domain: metadata.primary_class_cd_desc,
     skill: metadata.skill_desc,
     difficulty: { E: "Easy", M: "Medium", H: "Hard" }[metadata.difficulty] || metadata.difficulty,
@@ -183,16 +196,39 @@ function toRow(metadata, payload, source) {
 }
 
 const pdfText = runPdfToText(pdfPath);
-const assessment = /PSAT\/NMSQT/.test(pdfText) ? "PSAT" : /\bSAT\b/.test(pdfText) ? "SAT" : null;
-if (!assessment) throw new Error("Could not tell whether this export is SAT or PSAT.");
-const { id: assessmentId, output } = ASSESSMENTS[assessment];
-const outputPath = join(here, output);
-console.log(`Importing ${assessment} Math`);
-const ids = selectedQuestionIds(pdfText);
+// The first row of the export's table names the assessment and the test.
+const header = pdfText.match(/^\s*(PSAT\/NMSQT and PSAT|SAT)\s+(Math|Reading and Writing)\b/m);
+if (!header) throw new Error("Could not read the assessment and test from this export.");
+const assessment = header[1] === "SAT" ? "SAT" : "PSAT";
+const testName = header[2];
+const assessmentId = ASSESSMENT_IDS[assessment];
+const outputPath = join(here, OUTPUTS[`${assessment} ${testName}`]);
+console.log(`Importing ${assessment} ${testName}`);
+let ids = selectedQuestionIds(pdfText);
+if (skipExisting) {
+  for (const line of readFileSync(join(here, "..", ".env.local"), "utf8").split("\n")) {
+    const match = line.match(/^([A-Z_]+)=(.*)$/);
+    if (match && !process.env[match[1]]) process.env[match[1]] = match[2].trim();
+  }
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    { auth: { persistSession: false } }
+  );
+  const existing = new Set();
+  for (let start = 0; start < ids.length; start += 200) {
+    const { data, error } = await supabase.from("sat_questions").select("id").in("id", ids.slice(start, start + 200));
+    if (error) throw error;
+    data.forEach((row) => existing.add(row.id));
+  }
+  ids = ids.filter((id) => !existing.has(id));
+  console.log(`Skipping ${existing.size} questions already in the bank; importing ${ids.length}`);
+}
+const { code: testCode, domains } = TESTS[testName];
 const allMetadata = await jsonFetch(metadataUrl, {
   method: "POST",
   headers: { "content-type": "application/json" },
-  body: JSON.stringify({ asmtEventId: assessmentId, test: 2, domain: "H,P,Q,S" }),
+  body: JSON.stringify({ asmtEventId: assessmentId, test: testCode, domain: domains }),
 });
 const wanted = new Map(ids.map((id) => [id, true]));
 const metadata = allMetadata.filter((row) => wanted.has(row.questionId));
@@ -211,7 +247,7 @@ for (let start = 0; start < digitalRows.length; start += 25) {
     body: JSON.stringify({ external_ids: group }),
   });
   for (const detail of details) digitalPayloads.set(detail.externalid, detail);
-  console.log(`Downloaded structured MathML for ${Math.min(start + group.length, digitalRows.length)}/${digitalRows.length} digital questions`);
+  console.log(`Downloaded structured HTML for ${Math.min(start + group.length, digitalRows.length)}/${digitalRows.length} digital questions`);
 }
 
 const rows = [];
@@ -240,7 +276,7 @@ for (const row of metadata) {
     await new Promise((resolve) => setTimeout(resolve, 350));
   }
   if (rows.length % 25 === 0 || rows.length === metadata.length) {
-    console.log(`Normalized ${rows.length}/${metadata.length} Math questions`);
+    console.log(`Normalized ${rows.length}/${metadata.length} ${testName} questions`);
   }
 }
 

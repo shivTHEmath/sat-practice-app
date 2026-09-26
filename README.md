@@ -79,16 +79,29 @@ The schema lives in `supabase/migrations/0001_sat_practice.sql`.
 
 ## The question bank
 
-`scripts/bank.json` holds 679 questions parsed from the PDF export, each with
-its passage, stem, four choices, correct answer, rationale, domain, skill, and
-difficulty. Tables are preserved as structured rows.
+`scripts/bank.json` holds 679 SAT Reading and Writing questions parsed from a
+PDF export, each with its passage, stem, four choices, correct answer,
+rationale, domain, skill, and difficulty. Tables are preserved as structured
+rows.
 
-Two groups of questions were left out on purpose, because the PDF does not
-carry what they depend on:
+The PDF couldn't carry 74 of the export's questions, mostly ones whose charts
+are vector drawings or that refer to an underlined portion the PDF drops.
+Those came from College Board's question bank API instead, which supplies the
+full HTML: 26 charts as accessible SVG and 44 underlined spans marked up. They
+live in `scripts/sat-rw-bank.json`, so the SAT Reading and Writing bank now has
+all 753 questions from the export.
 
-- **31 chart questions**: the charts are vector drawings, not text, so the data
-  the question asks about cannot be read off the page.
-- **43 underline questions**: the PDF loses which span was underlined, so
-  "the underlined portion" has no referent.
+The 81 SAT notes-style questions ("While researching a topic, a student has
+taken the following notes:") were flattened to plain text by the PDF parser,
+so their bullets were guessed by sentence. `scripts/backfill-notes-html.mjs`
+replaced each with its source HTML list after checking the text matches.
 
-Everything else from the export is included.
+Math comes from the same API: `scripts/math-bank.json` (PSAT) and
+`scripts/sat-math-bank.json` (SAT). Mocks use only the digital Math questions,
+whose math is MathML; older legacy questions store equations as images.
+
+To import another export, run
+`node scripts/import-bank.mjs <export.pdf> [--skip-existing]`, then
+`node scripts/seed-bank.mjs <output file>`. The export's Assessment and Test
+columns choose the output file, and `--skip-existing` leaves rows already in
+Supabase untouched.
