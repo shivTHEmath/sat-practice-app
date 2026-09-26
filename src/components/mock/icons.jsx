@@ -116,7 +116,7 @@ export function StrikeLetterIcon({ letter }) {
 export function GripIcon() {
   return (
     <svg width="10" height="12" viewBox="0 0 10 12" aria-hidden="true">
-      <path d="M3.8 3 1 6l2.8 3M6.2 3 9 6 6.2 9" fill="none" stroke="#fff" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M3.8 3 1 6l2.8 3M6.2 3 9 6 6.2 9" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -208,6 +208,56 @@ export function UnderlineIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
       <path d="M4.5 2.5v5a3.5 3.5 0 0 0 7 0v-5M3 14h10" {...base} strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+export function ClockIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <circle cx="9" cy="9" r="7.2" {...base} strokeWidth="1.3" />
+      <path d="M9 5v4.2l2.8 1.8" {...base} strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+export function TestIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <rect x="3.5" y="2" width="11" height="14" rx="1.3" {...base} strokeWidth="1.3" />
+      <path d="M6 6h6M6 9h6M6 12h3.5" {...base} strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+export function ListIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path d="M6.5 4.5h9M6.5 9h9M6.5 13.5h9M2.8 4.5h.01M2.8 9h.01M2.8 13.5h.01" {...base} strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+export function ChartIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path d="M2.5 15.5h13M4.5 12.5V9M8.5 12.5V5M12.5 12.5V7.5" {...base} strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+export function ThemeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path d="M14.8 11.2A6.3 6.3 0 1 1 6.8 3.2a5 5 0 0 0 8 8z" {...base} strokeWidth="1.3" />
+    </svg>
+  );
+}
+
+export function ExitIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path d="M7 3H3.5v12H7M11.5 5.5 15 9l-3.5 3.5M15 9H7" {...base} strokeWidth="1.4" />
     </svg>
   );
 }

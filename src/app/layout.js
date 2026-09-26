@@ -1,5 +1,21 @@
+import { Noto_Serif, Roboto } from "next/font/google";
 import "./globals.css";
+import "./bluebook.css";
 import MathJaxProvider from "@/components/MathJaxProvider";
+
+// Bluebook sets its interface in Roboto and test content in Noto Serif.
+const roboto = Roboto({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--mk-sans",
+});
+
+const notoSerif = Noto_Serif({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+  variable: "--mk-serif",
+});
 
 const themeScript = `(() => {
   try {
@@ -30,7 +46,9 @@ export default function RootLayout({ children }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="h-full"><MathJaxProvider>{children}</MathJaxProvider></body>
+      <body className={`h-full ${roboto.variable} ${notoSerif.variable}`}>
+        <MathJaxProvider>{children}</MathJaxProvider>
+      </body>
     </html>
   );
 }
