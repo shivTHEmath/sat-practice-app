@@ -261,3 +261,11 @@ export function ExitIcon() {
     </svg>
   );
 }
+
+export function FilterIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path d="M2.5 4h13M5 9h8M7.5 14h3" {...base} strokeWidth="1.5" />
+    </svg>
+  );
+}

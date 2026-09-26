@@ -494,6 +494,34 @@ input:focus-visible {
   text-align: right;
 }
 
+.difficulty-bar:has(.filter-hide) {
+  position: relative;
+  padding-right: 3.25rem;
+}
+
+.filter-hide {
+  position: absolute;
+  top: 50%;
+  right: 0.65rem;
+  display: grid;
+  place-items: center;
+  z-index: 1;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  color: var(--color-bb-muted);
+}
+
+.filter-hide:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--color-bb-ink);
+}
+
+[data-theme="dark"] .filter-hide:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .topic-filters {
   display: grid;
   flex: none;
@@ -1074,7 +1102,8 @@ html[data-theme="dark"] {
   to { transform: rotate(360deg); }
 }
 
-@media (max-width: 1000px) {
+/* The slider and three selects need about 1,110px on one row. */
+@media (max-width: 1180px) {
   .difficulty-bar {
     align-items: stretch;
     flex-direction: column;
@@ -1083,6 +1112,11 @@ html[data-theme="dark"] {
 
   .difficulty-filter {
     min-width: 0;
+  }
+
+  .filter-hide {
+    top: 0.5rem;
+    transform: none;
   }
 }
 
