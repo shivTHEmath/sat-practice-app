@@ -236,6 +236,7 @@ export async function saveMockResult({
       answers,
       locked,
       lock_events: lockEvents,
+      modules: mock.modules,
     },
     { onConflict: "session_id" }
   );
@@ -277,8 +278,14 @@ export function clearProgress(user, mockId) {
   }
 }
 
+/** A sitting as the mock stood when it began, so later mock edits never change it. */
+export function mockAsTaken(mock, snapshot) {
+  return snapshot?.length ? { ...mock, modules: snapshot } : mock;
+}
+
 export function newProgress(mock, { locked = false } = {}) {
   return {
+    modules: mock.modules,
     locked,
     lockEvents: [],
     sessionId: crypto.randomUUID(),
