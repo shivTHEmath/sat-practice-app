@@ -121,7 +121,34 @@ function ReviewQuestion({ row, question, onClose, onPrev, onNext, hasPrev, hasNe
 }
 
 /** Score report: estimated scaled scores, module raw scores, answer review. */
-export default function MockResults({ mock, questionsById, answers, onHome }) {
+function LockSummary({ lock }) {
+  if (!lock) return null;
+  if (!lock.locked) {
+    return <p className="mk-lock-summary">Taken without locked mode.</p>;
+  }
+  const events = lock.events || [];
+  return (
+    <section className="mk-lock-summary" data-clean={!events.length}>
+      <strong>Locked mode: </strong>
+      {events.length
+        ? `you left the test ${events.length} ${events.length === 1 ? "time" : "times"}.`
+        : "you stayed in the test the whole time."}
+      {events.length ? (
+        <ul>
+          {events.map((event) => (
+            <li key={event.at}>
+              {new Date(event.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}
+              {" · "}
+              {event.where} · {event.types.join(", ")}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
+export default function MockResults({ mock, questionsById, answers, lock, onHome }) {
   const score = useMemo(() => scoreMock(mock, questionsById, answers), [mock, questionsById, answers]);
   const range = scoreRange(mock.assessment);
   const [filter, setFilter] = useState("all");
@@ -175,6 +202,8 @@ export default function MockResults({ mock, questionsById, answers, onHome }) {
               : "Estimated score. Official PSAT scores come from College Board’s adaptive scoring, which isn’t published; this estimate uses a fixed curve for a harder-route Module 2."}
           </p>
         </section>
+
+        <LockSummary lock={lock} />
 
         <section className="mk-module-scores">
           {mock.modules.map((mod, i) => (

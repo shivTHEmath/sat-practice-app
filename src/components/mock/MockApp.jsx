@@ -7,6 +7,9 @@ import MockRunner from "./MockRunner";
 import { signIn } from "@/lib/exam";
 import {
   clearProgress,
+  enterFullscreen,
+  exitFullscreen,
+  fullscreenSupported,
   formatClock,
   loadMockQuestions,
   loadMockResults,
@@ -154,6 +157,62 @@ function MockHome({ user, mocks, results, onSignOut, ...actions }) {
   );
 }
 
+function StartDialog({ mock, onCancel, onStart }) {
+  const [locked, setLocked] = useState(true);
+  const supported = fullscreenSupported();
+  return (
+    <div className="mk-modal-backdrop" onMouseDown={onCancel}>
+      <div
+        className="mk-modal mk-start"
+        role="dialog"
+        aria-labelledby="mk-start-title"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="mk-modal-head">
+          <h2 id="mk-start-title">Start {mock.name}</h2>
+        </div>
+        <div className="mk-modal-body">
+          <p>
+            About {Math.round((totalMinutes(mock) + 10) / 6) / 10} hours: two Reading and Writing
+            modules, a 10-minute break, and two Math modules. You can pause from the More menu
+            at any time; your answers and the time left are saved.
+          </p>
+          <label className="mk-switch-row">
+            <span className="mk-switch-copy">
+              <strong>Locked mode</strong>
+              <span>
+                The test runs in full screen. Leaving full screen or switching to another tab or
+                app hides the test until you return, while the clock keeps running, and each exit
+                is listed on your score report. Pausing unlocks your browser.
+              </span>
+              {!supported ? (
+                <span className="mk-switch-warning">
+                  This browser can’t enter full screen, so locked mode will only log when you leave.
+                </span>
+              ) : null}
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              className="mk-switch"
+              checked={locked}
+              onChange={(e) => setLocked(e.target.checked)}
+            />
+          </label>
+        </div>
+        <div className="mk-modal-actions">
+          <button type="button" className="mk-btn-link" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" className="mk-btn-blue" onClick={() => onStart(locked)}>
+            Start Test
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MockApp() {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
@@ -163,6 +222,7 @@ export default function MockApp() {
   const [results, setResults] = useState([]);
   const [view, setView] = useState({ name: "home" });
   const [loading, setLoading] = useState(false);
+  const [pendingStart, setPendingStart] = useState(null);
 
   // Bluebook is light-only; restore the practice app's theme on the way out.
   useEffect(() => {
@@ -227,6 +287,7 @@ export default function MockApp() {
       const questionsById = await loadMockQuestions(mock);
       next(questionsById);
     } catch (err) {
+      exitFullscreen();
       setError(err.message || "Could not load this mock.");
     } finally {
       setLoading(false);
@@ -234,15 +295,15 @@ export default function MockApp() {
   }
 
   function start(mock, progress) {
-    open(mock, (questionsById) =>
-      setView({ name: "test", mock, questionsById, progress: progress || newProgress(mock) })
-    );
+    // Full screen must be requested inside the click that starts the test.
+    if (progress.locked) enterFullscreen();
+    open(mock, (questionsById) => setView({ name: "test", mock, questionsById, progress }));
   }
 
   function restart(mock) {
     if (!window.confirm(`Start ${mock.name} over? Your saved answers for this sitting will be erased.`)) return;
     clearProgress(user, mock.id);
-    start(mock);
+    setPendingStart(mock);
   }
 
   async function complete(mock, questionsById, progress) {
@@ -252,9 +313,17 @@ export default function MockApp() {
       sessionId: progress.sessionId,
       questionsById,
       answers: progress.answers,
+      locked: Boolean(progress.locked),
+      lockEvents: progress.lockEvents || [],
     });
     clearProgress(user, mock.id);
-    setView({ name: "results", mock, questionsById, answers: progress.answers });
+    setView({
+      name: "results",
+      mock,
+      questionsById,
+      answers: progress.answers,
+      lock: { locked: Boolean(progress.locked), events: progress.lockEvents || [] },
+    });
     refresh(user).catch(() => {});
   }
 
@@ -289,6 +358,7 @@ export default function MockApp() {
           mock={view.mock}
           questionsById={view.questionsById}
           answers={view.answers}
+          lock={view.lock}
           onHome={() => setView({ name: "home" })}
         />
       </div>
@@ -301,16 +371,33 @@ export default function MockApp() {
         user={user}
         mocks={mocks}
         results={results}
-        onStart={(mock) => start(mock)}
+        onStart={(mock) => setPendingStart(mock)}
         onResume={(mock, progress) => start(mock, progress)}
         onRestart={restart}
         onViewResult={(mock, result) =>
           open(mock, (questionsById) =>
-            setView({ name: "results", mock, questionsById, answers: result.answers })
+            setView({
+              name: "results",
+              mock,
+              questionsById,
+              answers: result.answers,
+              lock: { locked: result.locked, events: result.lock_events || [] },
+            })
           )
         }
         onSignOut={handleSignOut}
       />
+      {pendingStart ? (
+        <StartDialog
+          mock={pendingStart}
+          onCancel={() => setPendingStart(null)}
+          onStart={(locked) => {
+            const mock = pendingStart;
+            setPendingStart(null);
+            start(mock, newProgress(mock, { locked }));
+          }}
+        />
+      ) : null}
       {loading ? <div className="mk-loading">Loading…</div> : null}
       {error ? <p className="mk-home-error">{error}</p> : null}
     </div>
