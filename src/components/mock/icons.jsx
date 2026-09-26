@@ -269,3 +269,19 @@ export function FilterIcon() {
     </svg>
   );
 }
+
+export function FullscreenIcon({ exit = false }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path
+        d={
+          exit
+            ? "M6.5 2.5v4h-4M11.5 2.5v4h4M6.5 15.5v-4h-4M11.5 15.5v-4h4"
+            : "M2.5 6.5v-4h4M15.5 6.5v-4h-4M2.5 11.5v4h4M15.5 11.5v4h-4"
+        }
+        {...base}
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
