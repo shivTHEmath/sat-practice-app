@@ -159,8 +159,13 @@ export default function Practice({ user, onSignOut, theme, onToggleTheme }) {
         }
       }
 
+      // A shared or bookmarked question link opens that question for review,
+      // but refreshing the page should simply continue practice.
+      const reloaded = performance.getEntriesByType?.("navigation")[0]?.type === "reload";
       const questionId = new URLSearchParams(window.location.search).get("question");
-      if (questionId) {
+      if (questionId && reloaded) {
+        window.history.replaceState(null, "", window.location.pathname);
+      } else if (questionId) {
         const linkedQuestion = await getQuestionById(questionId);
         if (cancelled) return;
         if (linkedQuestion) {
