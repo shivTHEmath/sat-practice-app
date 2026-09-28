@@ -6,7 +6,12 @@ import BaseQuestionContent from "../QuestionContent";
 import BaseRichText from "../RichText";
 import Calculator from "./Calculator";
 import ReferenceSheet from "./ReferenceSheet";
-import Highlighter from "./Highlighter";
+import {
+  AnnotationProvider,
+  AnnotationRegion,
+  HighlightModeButton,
+  NotesColumn,
+} from "./Annotations";
 import {
   MathDirections,
   ReadingWritingDirections,
@@ -22,7 +27,6 @@ import {
   EliminatorIcon,
   GripIcon,
   HelpIcon,
-  HighlightsIcon,
   KeyboardIcon,
   LineReaderIcon,
   MoreIcon,
@@ -334,7 +338,7 @@ export default function MockExam({
   showMark = true,
   exitMessage = "Your answers and the time left in this module are saved on this device. You can resume this practice test from the mock test page.",
 }) {
-  const [split, setSplit] = useState(50);
+  const [splitPct, setSplitPct] = useState(50);
   const [timerHidden, setTimerHidden] = useState(false);
   const [directionsOpen, setDirectionsOpen] = useState(openDirections);
   const [navOpen, setNavOpen] = useState(false);
@@ -377,7 +381,7 @@ export default function MockExam({
     if (!dragging.current || !mainRef.current) return;
     const box = mainRef.current.getBoundingClientRect();
     const pct = ((event.clientX - box.left) / box.width) * 100;
-    setSplit(Math.min(80, Math.max(20, pct)));
+    setSplitPct(Math.min(80, Math.max(20, pct)));
   }, []);
 
   useEffect(() => {
@@ -503,14 +507,7 @@ export default function MockExam({
             </button>
           </>
         ) : (
-          <button
-            type="button"
-            className="mk-tool"
-            onClick={() => setModal("highlights")}
-          >
-            <HighlightsIcon />
-            <span>Highlights &amp; Notes</span>
-          </button>
+          <HighlightModeButton />
         )}
         <div className="mk-more">
           <button
@@ -579,32 +576,49 @@ export default function MockExam({
     return questions.map((q, i) =>
       i < qIndex - 30 || i > qIndex + 1 ? null : (
         <div key={slotKey(q)} className="mk-pane-inner" hidden={i !== qIndex}>
-          <Highlighter className="mk-passage">
+          <AnnotationRegion qkey={slotKey(q)} region="passage" className="mk-passage">
             <QuestionContent question={q} />
-          </Highlighter>
+          </AnnotationRegion>
         </div>
       )
     );
   };
 
-  const block = question ? (
+  const renderBlock = (q, i) => (
     <QuestionBlock
-      question={question}
-      number={qIndex + 1}
-      answer={answer}
+      question={q}
+      number={i + 1}
+      answer={answers[slotKey(q)] || {}}
       crossOutOn={crossOutOn}
       onToggleCrossOut={() => setCrossOutOn((v) => !v)}
       onSelect={onSelect}
       onCross={onCross}
       onMark={onMark}
       showStimulus={isMath}
-      reveal={reveal}
+      reveal={i === qIndex && reveal}
       showMark={showMark}
     />
-  ) : null;
+  );
+  const block = question ? renderBlock(question, qIndex) : null;
 
+  // Like the passages, each question stays mounted so highlights in its
+  // prompt and choices survive navigating away and back.
+  const renderRight = () =>
+    isMath
+      ? block
+      : questions.map((q, i) =>
+          i < qIndex - 30 || i > qIndex + 1 ? null : (
+            <div key={slotKey(q)} hidden={i !== qIndex}>
+              <AnnotationRegion qkey={slotKey(q)} region="question">
+                {renderBlock(q, i)}
+              </AnnotationRegion>
+            </div>
+          )
+        );
+
+  const reviewing = stage === "review";
   let body;
-  if (stage === "review") {
+  if (reviewing) {
     body = (
       <main className="mk-main mk-review">
         <h2 className="mk-review-title">Check Your Work</h2>
@@ -622,12 +636,18 @@ export default function MockExam({
         </div>
       </main>
     );
-  } else if (split2) {
-    body = (
-      <main ref={mainRef} className="mk-main mk-split">
-        <section ref={leftRef} className="mk-pane mk-pane-left" style={{ width: `${split}%` }}>
-          {renderLeft()}
-        </section>
+  }
+  // Reading and Writing keeps the question panes mounted behind the review
+  // page too, so highlights and notes are still there on the way back.
+  if (split2 && (!reviewing || !isMath)) {
+    const split = (
+      <main ref={mainRef} className="mk-main mk-split" hidden={reviewing}>
+        <div className="mk-left" style={{ "--mk-split": `${splitPct}%` }}>
+          <section ref={leftRef} className="mk-pane mk-pane-left">
+            {renderLeft()}
+          </section>
+          {!isMath ? <NotesColumn qkey={question ? slotKey(question) : null} /> : null}
+        </div>
         <div
           className="mk-divider"
           role="separator"
@@ -643,15 +663,18 @@ export default function MockExam({
           </span>
         </div>
         <section ref={rightRef} className="mk-pane mk-pane-right">
-          <div className="mk-pane-inner">
-            {isMath ? block : (
-              <Highlighter key={slotKey(question)}>{block}</Highlighter>
-            )}
-          </div>
+          <div className="mk-pane-inner">{renderRight()}</div>
         </section>
       </main>
     );
-  } else {
+    // The same shape either way, so React never remounts the panes.
+    body = (
+      <>
+        {reviewing ? body : null}
+        {split}
+      </>
+    );
+  } else if (!reviewing) {
     body = (
       <main className="mk-main">
         <section ref={rightRef} className="mk-pane mk-pane-single">
@@ -662,156 +685,149 @@ export default function MockExam({
   }
 
   return (
-    <div className="mk-shell">
-      {header}
-      <div className="mk-rule" />
-      {banner ? <div className="mk-banner">{banner}</div> : null}
-      {body}
-      <div className="mk-rule" />
+    <AnnotationProvider>
+      <div className="mk-shell">
+        {header}
+        <div className="mk-rule" />
+        {banner ? <div className="mk-banner">{banner}</div> : null}
+        {body}
+        <div className="mk-rule" />
 
-      <footer className="mk-footer">
-        <div className="mk-footer-name">{username}</div>
-        {stage === "question" && !navigator ? (
-          <div className="mk-footer-center">
-            <span className="mk-nav-pill mk-nav-pill-static">Question {qIndex + 1}</span>
-          </div>
-        ) : stage === "question" ? (
-          <div className="mk-footer-center">
-            <button
-              type="button"
-              className="mk-nav-pill"
-              aria-expanded={navOpen}
-              onClick={() => setNavOpen((v) => !v)}
-            >
-              Question {qIndex + 1} of {questions.length} <ChevronIcon up={!navOpen} />
-            </button>
-            {navOpen ? (
-              <>
-                <div className="mk-click-away" onClick={() => setNavOpen(false)} />
-                <div className="mk-nav-popup" role="dialog" aria-label="Question navigator">
-                  <div className="mk-nav-head">
-                    <h3>{title} Questions</h3>
-                    <button type="button" className="mk-icon-btn" aria-label="Close" onClick={() => setNavOpen(false)}>
-                      <CloseIcon />
+        <footer className="mk-footer">
+          <div className="mk-footer-name">{username}</div>
+          {stage === "question" && !navigator ? (
+            <div className="mk-footer-center">
+              <span className="mk-nav-pill mk-nav-pill-static">Question {qIndex + 1}</span>
+            </div>
+          ) : stage === "question" ? (
+            <div className="mk-footer-center">
+              <button
+                type="button"
+                className="mk-nav-pill"
+                aria-expanded={navOpen}
+                onClick={() => setNavOpen((v) => !v)}
+              >
+                Question {qIndex + 1} of {questions.length} <ChevronIcon up={!navOpen} />
+              </button>
+              {navOpen ? (
+                <>
+                  <div className="mk-click-away" onClick={() => setNavOpen(false)} />
+                  <div className="mk-nav-popup" role="dialog" aria-label="Question navigator">
+                    <div className="mk-nav-head">
+                      <h3>{title} Questions</h3>
+                      <button type="button" className="mk-icon-btn" aria-label="Close" onClick={() => setNavOpen(false)}>
+                        <CloseIcon />
+                      </button>
+                    </div>
+                    <Legend />
+                    <QuestionGrid questions={questions} answers={answers} current={qIndex} onGo={onGo} />
+                    <button type="button" className="mk-btn-outline" onClick={onReview}>
+                      Go to Review Page
                     </button>
                   </div>
-                  <Legend />
-                  <QuestionGrid questions={questions} answers={answers} current={qIndex} onGo={onGo} />
-                  <button type="button" className="mk-btn-outline" onClick={onReview}>
-                    Go to Review Page
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </div>
-        ) : (
-          <div className="mk-footer-center" />
-        )}
-        <div className="mk-footer-actions">
-          {showBack ? (
-            <button type="button" className="mk-btn-blue" onClick={onBack}>
-              Back
-            </button>
-          ) : null}
-          <button type="button" className="mk-btn-blue" disabled={!canNext} onClick={onNext}>
-            {nextLabel}
-          </button>
-        </div>
-      </footer>
-
-      {fiveMinuteNotice ? (
-        <div className="mk-toast" role="status">
-          5 minutes remaining in this module.
-        </div>
-      ) : null}
-
-      {isMath ? (
-        <>
-          <Calculator open={calcOpen} onClose={() => setCalcOpen(false)} />
-          <ReferenceSheet open={refOpen} onClose={() => setRefOpen(false)} />
-        </>
-      ) : null}
-
-      {lineReader ? <LineReader onClose={() => setLineReader(false)} /> : null}
-
-      {modal === "highlights" ? (
-        <Modal title="Highlights & Notes" onClose={() => setModal(null)}>
-          <p>
-            Select any text in a passage or question to highlight it. Use the toolbar that
-            appears to change the color, underline it, add a note, or delete the highlight.
-            Click an existing highlight to open its toolbar again.
-          </p>
-        </Modal>
-      ) : null}
-      {modal === "help" ? (
-        <Modal title="Help" onClose={() => setModal(null)}>
-          <ul className="mk-help-list">
-            {remainingMs != null ? (
-              <li><strong>Timer:</strong> Hide or show the countdown. It always shows in the last 5 minutes.</li>
-            ) : (
-              <li><strong>Timer:</strong> Shows how long you have spent on this question. Hide it if it distracts you.</li>
-            )}
-            {showMark ? (
-              <li><strong>Mark for Review:</strong> Flag a question to come back to.{navigator ? " Flags appear in the navigator." : ""}</li>
-            ) : null}
-            <li><strong>Answer eliminator:</strong> Turn on the ABC tool to cross out choices you think are wrong.</li>
-            {navigator ? (
-              <li><strong>Question navigator:</strong> Open “Question X of Y” to jump to any question or the review page.</li>
-            ) : null}
-            {reveal || !navigator ? (
-              <li><strong>Instant checking:</strong> Choosing an answer locks it in and shows the explanation.</li>
-            ) : null}
-            {isMath ? (
-              <li><strong>Calculator and Reference:</strong> Open the Desmos calculator or the formula sheet. Both can be moved and resized.</li>
-            ) : (
-              <li><strong>Highlights &amp; Notes:</strong> Select text to highlight it and attach notes.</li>
-            )}
-            {onExit ? <li><strong>Exit the Exam:</strong> {exitMessage}</li> : null}
-          </ul>
-        </Modal>
-      ) : null}
-      {modal === "shortcuts" ? (
-        <Modal title="Shortcuts" onClose={() => setModal(null)}>
-          <table className="mk-shortcuts">
-            <tbody>
-              <tr><td>A, B, C, D</td><td>Select an answer choice</td></tr>
-              {keyboardNav ? (
-                <>
-                  <tr><td>Enter or →</td><td>Next question</td></tr>
-                  <tr><td>←</td><td>Previous question</td></tr>
                 </>
               ) : null}
-              <tr><td>Esc</td><td>Close the navigator, menus, or line reader</td></tr>
-            </tbody>
-          </table>
-        </Modal>
-      ) : null}
-      {modal === "break" ? (
-        <Modal
-          title="Unscheduled Break"
-          onClose={() => setModal(null)}
-          actions={<button type="button" className="mk-btn-blue" onClick={() => setModal(null)}>Close</button>}
-        >
-          <p>
-            The clock keeps running during an unscheduled break. To pause instead, choose Exit
-            the Exam: your progress and remaining time are saved and you can resume later.
-          </p>
-        </Modal>
-      ) : null}
-      {modal === "exit" ? (
-        <Modal
-          title="Are You Sure You Want to Exit the Exam?"
-          onClose={() => setModal(null)}
-          actions={
-            <>
-              <button type="button" className="mk-btn-link" onClick={() => setModal(null)}>Cancel</button>
-              <button type="button" className="mk-btn-blue" onClick={onExit}>Exit</button>
-            </>
-          }
-        >
-          <p>{exitMessage}</p>
-        </Modal>
-      ) : null}
-    </div>
+            </div>
+          ) : (
+            <div className="mk-footer-center" />
+          )}
+          <div className="mk-footer-actions">
+            {showBack ? (
+              <button type="button" className="mk-btn-blue" onClick={onBack}>
+                Back
+              </button>
+            ) : null}
+            <button type="button" className="mk-btn-blue" disabled={!canNext} onClick={onNext}>
+              {nextLabel}
+            </button>
+          </div>
+        </footer>
+
+        {fiveMinuteNotice ? (
+          <div className="mk-toast" role="status">
+            5 minutes remaining in this module.
+          </div>
+        ) : null}
+
+        {isMath ? (
+          <>
+            <Calculator open={calcOpen} onClose={() => setCalcOpen(false)} />
+            <ReferenceSheet open={refOpen} onClose={() => setRefOpen(false)} />
+          </>
+        ) : null}
+
+        {lineReader ? <LineReader onClose={() => setLineReader(false)} /> : null}
+
+        {modal === "help" ? (
+          <Modal title="Help" onClose={() => setModal(null)}>
+            <ul className="mk-help-list">
+              {remainingMs != null ? (
+                <li><strong>Timer:</strong> Hide or show the countdown. It always shows in the last 5 minutes.</li>
+              ) : (
+                <li><strong>Timer:</strong> Shows how long you have spent on this question. Hide it if it distracts you.</li>
+              )}
+              {showMark ? (
+                <li><strong>Mark for Review:</strong> Flag a question to come back to.{navigator ? " Flags appear in the navigator." : ""}</li>
+              ) : null}
+              <li><strong>Answer eliminator:</strong> Turn on the ABC tool to cross out choices you think are wrong.</li>
+              {navigator ? (
+                <li><strong>Question navigator:</strong> Open “Question X of Y” to jump to any question or the review page.</li>
+              ) : null}
+              {reveal || !navigator ? (
+                <li><strong>Instant checking:</strong> Choosing an answer locks it in and shows the explanation.</li>
+              ) : null}
+              {isMath ? (
+                <li><strong>Calculator and Reference:</strong> Open the Desmos calculator or the formula sheet. Both can be moved and resized.</li>
+              ) : (
+                <li><strong>Highlights &amp; Notes:</strong> Select text in a passage, question or answer choice to highlight, underline or add a note. Turn on Highlights &amp; Notes to highlight as soon as you select.</li>
+              )}
+              {onExit ? <li><strong>Exit the Exam:</strong> {exitMessage}</li> : null}
+            </ul>
+          </Modal>
+        ) : null}
+        {modal === "shortcuts" ? (
+          <Modal title="Shortcuts" onClose={() => setModal(null)}>
+            <table className="mk-shortcuts">
+              <tbody>
+                <tr><td>A, B, C, D</td><td>Select an answer choice</td></tr>
+                {keyboardNav ? (
+                  <>
+                    <tr><td>Enter or →</td><td>Next question</td></tr>
+                    <tr><td>←</td><td>Previous question</td></tr>
+                  </>
+                ) : null}
+                <tr><td>Esc</td><td>Close the navigator, menus, or line reader</td></tr>
+              </tbody>
+            </table>
+          </Modal>
+        ) : null}
+        {modal === "break" ? (
+          <Modal
+            title="Unscheduled Break"
+            onClose={() => setModal(null)}
+            actions={<button type="button" className="mk-btn-blue" onClick={() => setModal(null)}>Close</button>}
+          >
+            <p>
+              The clock keeps running during an unscheduled break. To pause instead, choose Exit
+              the Exam: your progress and remaining time are saved and you can resume later.
+            </p>
+          </Modal>
+        ) : null}
+        {modal === "exit" ? (
+          <Modal
+            title="Are You Sure You Want to Exit the Exam?"
+            onClose={() => setModal(null)}
+            actions={
+              <>
+                <button type="button" className="mk-btn-link" onClick={() => setModal(null)}>Cancel</button>
+                <button type="button" className="mk-btn-blue" onClick={onExit}>Exit</button>
+              </>
+            }
+          >
+            <p>{exitMessage}</p>
+          </Modal>
+        ) : null}
+      </div>
+    </AnnotationProvider>
   );
 }

@@ -1082,112 +1082,402 @@ body.mk-col-resize * {
   pointer-events: none;
 }
 
-/* ---------- Highlights ---------- */
+/* ---------- Highlights & Notes ---------- */
+
+/* Colors sampled from Bluebook: pale at rest, full while a highlight is selected. */
+.mk-root {
+  --mk-hl-yellow: #fcf0bd;
+  --mk-hl-yellow-on: #fad84f;
+  --mk-hl-blue: #d7e8fb;
+  --mk-hl-blue-on: #9fc9f4;
+  --mk-hl-pink: #fbe0f0;
+  --mk-hl-pink-on: #f4b3db;
+}
 
 .mk-hl-scope {
   position: relative;
 }
 
+.mk-choice-text {
+  user-select: text;
+}
+
 mark.mk-hl {
-  background: #fff09a;
+  background: var(--mk-hl-yellow);
   color: inherit;
   cursor: pointer;
 }
 
+mark.mk-hl[data-active="true"] {
+  background: var(--mk-hl-yellow-on);
+}
+
 mark.mk-hl[data-color="blue"] {
-  background: #bfe4ff;
+  background: var(--mk-hl-blue);
+}
+
+mark.mk-hl[data-color="blue"][data-active="true"] {
+  background: var(--mk-hl-blue-on);
 }
 
 mark.mk-hl[data-color="pink"] {
-  background: #ffc9e2;
+  background: var(--mk-hl-pink);
 }
 
-mark.mk-hl[data-underline="true"] {
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
+mark.mk-hl[data-color="pink"][data-active="true"] {
+  background: var(--mk-hl-pink-on);
+}
+
+mark.mk-hl[data-underline="solid"],
+mark.mk-hl[data-underline="dashed"],
+mark.mk-hl[data-underline="dotted"],
+.mk-note-quote[data-underline="solid"],
+.mk-note-quote[data-underline="dashed"],
+.mk-note-quote[data-underline="dotted"] {
+  text-decoration-line: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
 
-mark.mk-hl[data-note="true"] {
-  border-bottom: 2px dotted var(--mk-ink);
+mark.mk-hl[data-underline="dashed"],
+.mk-note-quote[data-underline="dashed"] {
+  text-decoration-style: dashed;
+}
+
+mark.mk-hl[data-underline="dotted"],
+.mk-note-quote[data-underline="dotted"] {
+  text-decoration-style: dotted;
+  text-decoration-thickness: 2px;
 }
 
 .mk-hl-toolbar {
   position: absolute;
   z-index: 15;
-  width: 260px;
-  padding: 8px;
-  border-radius: 8px;
-  background: var(--mk-bg);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
-  font-family: var(--mk-sans), Roboto, Arial, sans-serif;
-  font-size: 13px;
-}
-
-.mk-hl-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  padding: 5px 8px;
+  border: 1px solid #d4d4d4;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+  color: #1e1e1e;
+  font-family: var(--mk-sans), Roboto, Arial, sans-serif;
+  font-size: 13px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.mk-hl-swatch,
+.mk-hl-circle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
 }
 
 .mk-hl-swatch {
-  width: 24px;
-  height: 24px;
-  border: 1px solid rgba(0, 0, 0, 0.25) !important;
-  border-radius: 999px;
-  background: #fff09a !important;
+  border: 1px solid #a9a9a9 !important;
+  background: var(--mk-hl-yellow) !important;
 }
 
 .mk-hl-swatch[data-color="blue"] {
-  background: #bfe4ff !important;
+  background: var(--mk-hl-blue) !important;
 }
 
 .mk-hl-swatch[data-color="pink"] {
-  background: #ffc9e2 !important;
+  background: var(--mk-hl-pink) !important;
 }
 
 .mk-hl-swatch[aria-pressed="true"] {
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--mk-ink);
+  border: 1.5px solid #3c3c3c !important;
+}
+
+.mk-hl-swatch:hover {
+  border-color: #3c3c3c !important;
+}
+
+.mk-hl-circle {
+  border: 1.5px solid #3c3c3c !important;
+}
+
+.mk-hl-circle:hover,
+.mk-hl-underline-btn:hover,
+.mk-hl-underline-btn[aria-expanded="true"] {
+  background: #eef0f5 !important;
 }
 
 .mk-hl-sep {
   width: 1px;
   height: 22px;
-  margin: 0 3px;
   background: #cfcfcf;
 }
 
-.mk-hl-action {
-  display: inline-flex;
+.mk-hl-underline {
+  position: relative;
+}
+
+.mk-hl-underline-btn {
+  display: flex;
   align-items: center;
-  gap: 4px;
   height: 28px;
-  padding: 0 6px !important;
+  padding: 0 2px !important;
+  border-radius: 6px;
+}
+
+.mk-hl-underline-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid #d4d4d4;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
+  transform: translateX(-50%);
+}
+
+.mk-hl-underline-menu button {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  height: 28px;
   border-radius: 4px;
-  font-weight: 500 !important;
+  font-size: 12px;
 }
 
-.mk-hl-action:hover,
-.mk-hl-action[aria-pressed="true"] {
-  background: var(--mk-hover) !important;
+.mk-hl-underline-menu button:hover,
+.mk-hl-underline-menu button[aria-checked="true"] {
+  background: #eef0f5 !important;
 }
 
-.mk-hl-note-btn {
-  margin-left: auto;
+/* Highlight mode lights up the header button, as Bluebook's does. */
+.mk-hl-mode {
+  position: relative;
 }
 
-.mk-hl-note {
-  width: 100%;
-  min-height: 72px;
-  margin-top: 8px;
-  padding: 8px;
-  border: 1px solid #8a8a8a;
+.mk-hl-mode .mk-tool {
+  padding: 2px 6px 0 !important;
+  border-radius: 4px;
+}
+
+.mk-hl-mode .mk-tool[aria-pressed="true"] {
+  background: rgba(0, 0, 0, 0.06) !important;
+}
+
+.mk-hl-tip {
+  position: absolute;
+  z-index: 45;
+  top: calc(100% + 12px);
+  right: -36px;
+  width: 150px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: #3d3d3d;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.mk-hl-tip strong {
+  display: block;
+}
+
+.mk-hl-tip::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: 72px;
+  border: 6px solid transparent;
+  border-top: 0;
+  border-bottom-color: #3d3d3d;
+}
+
+/* ---------- Notes column ---------- */
+
+.mk-left {
+  display: flex;
+  flex: none;
+  width: var(--mk-split, 50%);
+  min-width: 0;
+  height: 100%;
+}
+
+/* The notes column takes its width from both panes, not just the passage. */
+.mk-left:has(> .mk-notes:not([data-collapsed="true"])) {
+  width: calc(var(--mk-split, 50%) + 92px);
+}
+
+.mk-left .mk-pane-left {
+  flex: 1;
+}
+
+.mk-main[hidden] {
+  display: none;
+}
+
+.mk-notes {
+  position: relative;
+  flex: none;
+  width: 184px;
+  overflow: hidden;
+  border-left: 1px solid var(--mk-line);
+  background: var(--mk-surface);
+}
+
+.mk-notes[data-collapsed="true"] {
+  width: 14px;
+  overflow: visible;
+}
+
+.mk-note-card {
+  position: absolute;
+  left: 12px;
+  width: 158px;
+  overflow: hidden;
+  border: 1px solid #8c8c8c;
   border-radius: 6px;
   background: var(--mk-bg);
+  font-family: var(--mk-sans), Roboto, Arial, sans-serif;
+  font-size: 12px;
+}
+
+.mk-note-card[data-active="true"] {
+  left: 4px;
+  border: 2px solid var(--mk-ink);
+}
+
+.mk-note-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 6px 4px 8px;
+  background: var(--mk-hl-yellow);
+  color: #1e1e1e;
+  font-weight: 700;
+}
+
+.mk-note-card[data-active="true"] .mk-note-head {
+  background: var(--mk-hl-yellow-on);
+}
+
+.mk-note-card[data-color="blue"] .mk-note-head {
+  background: var(--mk-hl-blue);
+}
+
+.mk-note-card[data-color="blue"][data-active="true"] .mk-note-head {
+  background: var(--mk-hl-blue-on);
+}
+
+.mk-note-card[data-color="pink"] .mk-note-head {
+  background: var(--mk-hl-pink);
+}
+
+.mk-note-card[data-color="pink"][data-active="true"] .mk-note-head {
+  background: var(--mk-hl-pink-on);
+}
+
+.mk-note-quote {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mk-note-delete {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+}
+
+.mk-note-card[data-active="true"] .mk-note-delete,
+.mk-note-delete:hover {
+  background: #fff !important;
+}
+
+.mk-note-text {
+  display: block;
+  width: 100%;
+  min-height: 30px;
+  padding: 7px 8px 8px;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
   color: var(--mk-ink);
-  font-family: inherit;
+  font: inherit;
+  line-height: 1.35;
+  resize: none;
+}
+
+.mk-root .mk-note-text:focus-visible {
+  outline: 0;
+}
+
+.mk-note-text::placeholder {
+  color: #8a8a8a;
+}
+
+.mk-note-confirm {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #2b2b2b;
+  color: #fff;
+}
+
+.mk-note-confirm p {
+  margin: 0;
   font-size: 14px;
-  resize: vertical;
+  font-weight: 700;
+}
+
+.mk-note-confirm div {
+  display: flex;
+  justify-content: space-around;
+}
+
+.mk-note-confirm button {
+  min-width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.mk-note-no {
+  border: 2px solid #fff !important;
+  text-decoration: underline;
+}
+
+.mk-notes-toggle {
+  position: absolute;
+  z-index: 2;
+  bottom: 28px;
+  left: 2px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #5f5f5f !important;
+  color: #fff !important;
+}
+
+.mk-notes[data-collapsed="true"] .mk-notes-toggle {
+  left: -10px;
 }
 
 /* ---------- Floating tool panels ---------- */
