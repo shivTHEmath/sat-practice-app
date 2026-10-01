@@ -2052,6 +2052,10 @@ mark.mk-hl[data-underline="dotted"],
   gap: 24px;
 }
 
+.mk-score-sections[data-columns="3"] {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
 .mk-score-label {
   font-size: 15px;
   font-weight: 700;
@@ -2422,6 +2426,10 @@ mark.mk-hl[data-underline="dotted"],
 
   .mk-score-total {
     border-right: 0;
+  }
+
+  .mk-score-sections[data-columns="3"] {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
