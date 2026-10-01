@@ -151,6 +151,9 @@ function LockSummary({ lock }) {
 export default function MockResults({ mock, questionsById, answers, lock, onHome }) {
   const score = useMemo(() => scoreMock(mock, questionsById, answers), [mock, questionsById, answers]);
   const range = scoreRange(mock.assessment);
+  const psat = mock.assessment === "PSAT";
+  // National Merit weights Reading and Writing double: (2 × R&W + Math) / 10.
+  const selectionIndex = (2 * score.rw.score + score.math.score) / 10;
   const [filter, setFilter] = useState("all");
   const [openIndex, setOpenIndex] = useState(null);
 
@@ -180,7 +183,7 @@ export default function MockResults({ mock, questionsById, answers, lock, onHome
             <div className="mk-score-number">{score.total}</div>
             <div className="mk-score-range">{range.total}</div>
           </div>
-          <div className="mk-score-sections">
+          <div className="mk-score-sections" data-columns={psat ? 3 : 2}>
             <div>
               <div className="mk-score-label">Reading and Writing</div>
               <div className="mk-score-number mk-score-sm">{score.rw.score}</div>
@@ -195,6 +198,13 @@ export default function MockResults({ mock, questionsById, answers, lock, onHome
                 {range.section} · {score.math.raw} of {score.math.total} correct
               </div>
             </div>
+            {psat ? (
+              <div>
+                <div className="mk-score-label">NMSC Selection Index</div>
+                <div className="mk-score-number mk-score-sm">{selectionIndex}</div>
+                <div className="mk-score-range">48–228 · used for National Merit</div>
+              </div>
+            ) : null}
           </div>
           <p className="mk-score-note">
             {mock.assessment === "SAT"
