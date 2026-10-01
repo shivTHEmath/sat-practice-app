@@ -366,10 +366,16 @@ export default function MockExam({
     if (lowTime && !noticeShown.current && remainingMs > 0) {
       noticeShown.current = true;
       setFiveMinuteNotice(true);
-      const t = setTimeout(() => setFiveMinuteNotice(false), 6000);
-      return () => clearTimeout(t);
     }
   }, [lowTime, remainingMs]);
+
+  // Kept apart from the effect above, which re-runs on every clock tick and
+  // would cancel the timer before it fired.
+  useEffect(() => {
+    if (!fiveMinuteNotice) return undefined;
+    const t = setTimeout(() => setFiveMinuteNotice(false), 6000);
+    return () => clearTimeout(t);
+  }, [fiveMinuteNotice]);
 
   useEffect(() => {
     rightRef.current?.scrollTo(0, 0);
@@ -745,7 +751,15 @@ export default function MockExam({
 
         {fiveMinuteNotice ? (
           <div className="mk-toast" role="status">
-            5 minutes remaining in this module.
+            <span>5 minutes remaining in this module.</span>
+            <button
+              type="button"
+              className="mk-toast-close"
+              aria-label="Dismiss"
+              onClick={() => setFiveMinuteNotice(false)}
+            >
+              <CloseIcon size={16} />
+            </button>
           </div>
         ) : null}
 

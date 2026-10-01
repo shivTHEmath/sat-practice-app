@@ -990,7 +990,10 @@ body.mk-col-resize * {
   top: 92px;
   left: 50%;
   z-index: 45;
-  padding: 12px 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px 10px 22px;
   border-radius: 6px;
   background: var(--mk-pill-bg);
   color: var(--mk-pill-ink);
@@ -998,6 +1001,18 @@ body.mk-col-resize * {
   font-weight: 500;
   transform: translateX(-50%);
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+}
+
+.mk-toast-close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+}
+
+.mk-toast-close:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
 }
 
 .mk-modal-backdrop {
